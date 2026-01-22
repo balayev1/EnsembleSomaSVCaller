@@ -2,30 +2,41 @@
 
 nextflow.enable.dsl=2
 
-include { 
-    GENERATE_PER_SAMPLE_SNPS; 
-    MERGE_AND_GC_CORRECT_SNPS; 
-    RUN_ASCAT 
-} from './ascat.nf'
+// Include the new process
+include { ASCAT } from './ascat.nf'
 
 workflow {
-    // 1. Setup Input Channel
+    // 1. Prepare global reference files from params
+    fasta      = params.fasta      ? file(params.fasta)      : []
+    allele_res = params.allele_res ? file(params.allele_res) : []
+    loci_res   = params.loci_res   ? file(params.loci_res)   : []
+    gc_file    = params.gc_file    ? file(params.gc_file)    : []
+    rt_file    = params.rt_file    ? file(params.rt_file)    : []
+    bed_file   = params.bed_file   ? file(params.bed_file)   : []
+
+    // 2. Setup Input Channel
     ch_samples = Channel.fromPath(params.input)
         .splitCsv(header:true)
-        .map { row -> tuple(row.subjectID, file("${row.tumorBAM}*"), file("${row.normalBAM}*"), row.gender) }
-    
-    ref_bundle = [ file(params.fasta), file("${params.fasta}.fai") ]
+        .map { row -> 
+            def meta = [ id: row.subjectID, gender: row.gender ]
+            
+            // This ensures we find 'sample.bai' instead of 'sample.bam.bai'
+            def normal_bam = file(row.normalBAM)
+            def normal_bai = file(row.normalBAM.replaceFirst(/\.bam$/, ".bai"))
+            def tumor_bam  = file(row.tumorBAM)
+            def tumor_bai  = file(row.tumorBAM.replaceFirst(/\.bam$/, ".bai"))
 
-    // 2. Parallel SNP generation
-    individual_hets = GENERATE_PER_SAMPLE_SNPS(ch_samples, ref_bundle)
+            return [ meta, normal_bam, normal_bai, tumor_bam, tumor_bai ]
+        }
 
-    // 3. Merge and GC-correct SNPs
-    // .collect() gathers all individual_hets files into a single list
-    custom_panel = MERGE_AND_GC_CORRECT_SNPS(individual_hets.het_file.collect(), ref_bundle)
-
-    // 4. Final Step: Run ASCAT for each sample
-    RUN_ASCAT(
-        ch_samples, 
-        ref_bundle, 
-        custom_panel.gc_file)
+    // 3. Run the ASCAT process
+    ASCAT (
+        ch_samples,
+        allele_res,
+        loci_res,
+        bed_file,
+        fasta,
+        gc_file,
+        rt_file
+    )
 }
