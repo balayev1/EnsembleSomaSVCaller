@@ -1,3 +1,5 @@
+#!/usr/bin/env nextflow
+
 process ASCAT {
     tag "${meta.id}"
     label 'process_medium'
@@ -66,13 +68,8 @@ process ASCAT {
     options(bitmapType='cairo')
 
     if(dir.exists("${allele_files}")) {
-        # expected production use of a directory
         allele_path   = normalizePath("${allele_files}")
-        allele_prefix = paste0(allele_path, "/", "${allele_files}", "_chr")
-    } else if(file.exists("${allele_files}")) {
-        # expected testing use of a single file
-        allele_path   = basename(normalizePath("${allele_files}"))
-        allele_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", allele_path)
+        allele_prefix = paste0(allele_path, "/G1000_alleles_hg38_chr")
     } else {
         stop("The specified allele files do not exist.")
     }
@@ -84,11 +81,7 @@ process ASCAT {
     if(dir.exists("${loci_files}")) {
         # expected production use of a directory
         loci_path   = normalizePath("${loci_files}")
-        loci_prefix = paste0(loci_path, "/", "${loci_files}", "_chr")
-    } else if(file.exists("${loci_files}")) {
-        # expected testing use of a single file
-        loci_path   = basename(normalizePath("${loci_files}"))
-        loci_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", loci_path)
+        loci_prefix = paste0(loci_path, "/G1000_loci_hg38_chr")
     } else {
         stop("The specified loci files do not exist.")
     }
