@@ -6,7 +6,7 @@ nextflow.enable.dsl=2
 include { ASCAT } from './ascat.nf'
 
 workflow {
-    // 1. Prepare global reference files from params
+    // Prepare global reference files from params
     fasta      = params.fasta      ? file(params.fasta)      : []
     allele_res = params.allele_res ? file(params.allele_res) : []
     loci_res   = params.loci_res   ? file(params.loci_res)   : []
@@ -14,7 +14,7 @@ workflow {
     rt_file    = params.rt_file    ? file(params.rt_file)    : []
     bed_file   = params.bed_file   ? file(params.bed_file)   : []
 
-    // 2. Setup Input Channel
+    // Setup Input Channel
     ch_samples = Channel.fromPath(params.input)
         .splitCsv(header:true)
         .map { row -> 
@@ -29,7 +29,7 @@ workflow {
             return [ meta, normal_bam, normal_bai, tumor_bam, tumor_bai ]
         }
 
-    // 3. Run the ASCAT process
+    // Run the ASCAT process
     ASCAT (
         ch_samples,
         allele_res,
