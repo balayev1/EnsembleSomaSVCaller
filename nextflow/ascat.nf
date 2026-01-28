@@ -4,7 +4,7 @@ process ASCAT {
     tag "${meta.id}"
     label 'process_medium'
 
-    container 'quay.io/biocontainers/ascat:3.2.0--r44hdfd78af_1'
+    container 'docker://swantonlab/ascat:latest'
 
     input:
     tuple val(meta), path(input_normal), path(index_normal), path(input_tumor), path(index_tumor)
@@ -58,7 +58,7 @@ process ASCAT {
         additional_allelecounter_arg = ", additional_allelecounter_flags = '-r \"${fasta}\"'"
     }
     else {
-        additional_allelecounter_arg = ""
+	additional_allelecounter_arg = ""
     }
 
     """
@@ -69,7 +69,7 @@ process ASCAT {
 
     if(dir.exists("${allele_files}")) {
         allele_path   = normalizePath("${allele_files}")
-        allele_prefix = paste0(allele_path, "/G1000_alleles_hg38_chr")
+        allele_prefix = paste0(allele_path, "/G1000_alleles_hg38_")
     } else {
         stop("The specified allele files do not exist.")
     }
@@ -81,7 +81,7 @@ process ASCAT {
     if(dir.exists("${loci_files}")) {
         # expected production use of a directory
         loci_path   = normalizePath("${loci_files}")
-        loci_prefix = paste0(loci_path, "/G1000_loci_hg38_chr")
+        loci_prefix = paste0(loci_path, "/G1000_loci_hg38_")
     } else {
         stop("The specified loci files do not exist.")
     }
