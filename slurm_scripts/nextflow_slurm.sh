@@ -10,6 +10,7 @@
 # Load modules
 module load nextflow
 module load singularity
+module load java/openjdk-17.0.2
 
 # Run Nextflow
 nextflow run main.nf \
