@@ -3,7 +3,7 @@
 nextflow.enable.dsl=2
 
 // Include the new process
-include { ASCAT } from 'nextflow/ascat.nf'
+include { ASCAT } from './nextflow/ascat.nf'
 
 workflow {
     // Prepare global reference files from params
