@@ -15,7 +15,7 @@ module load singularity
 nextflow run main.nf \
     -profile singularity \
     -resume \
-    --config nextflow.config \
+    -c nextflow.config \
     -with-report report.html \
     -with-timeline timeline.html
 
