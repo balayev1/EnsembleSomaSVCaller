@@ -47,8 +47,8 @@ workflow {
         gc_file,
         rt_file
     )
-    /
-    
+    */
+
     // Run the Sequenza workflow
     // Generate GC Wiggle Reference
     // We use .first() so it only runs once and provides the file to all samples
