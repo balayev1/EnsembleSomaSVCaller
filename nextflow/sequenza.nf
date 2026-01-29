@@ -23,7 +23,7 @@ process SEQUENZAUTILS_GCWIGGLE {
     """
     sequenza-utils \\
         gc_wiggle \\
-        --fasta $fasta \\
+        --fasta ${fasta[0]} \\
         -o ${prefix}.wig.gz \\
         -w $window_arg
 
