@@ -15,14 +15,17 @@ process SEQUENZAUTILS_GCWIGGLE {
     task.ext.when == null || task.ext.when
 
     script:
-    def args = task.ext.args ?: ''
+    def args = task.ext.args ?: [:]
     def prefix = task.ext.prefix ?: "${meta.id}"
+
+    def window_arg = args.window ? "${args.window}" : "50"
+
     """
     sequenza-utils \\
         gc_wiggle \\
-        $args \\
         --fasta $fasta \\
-        -o ${prefix}.wig.gz
+        -o ${prefix}.wig.gz \\
+        -w $window_arg
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
