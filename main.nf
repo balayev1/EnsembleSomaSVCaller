@@ -11,7 +11,7 @@ include { SEQUENZA_RUN }           from './nextflow/sequenza.nf'
 
 workflow {
     // Prepare global reference files from params
-    fasta      = params.fasta      ? file(params.fasta)      : []
+    fasta = params.fasta ? [file(params.fasta), file("${params.fasta}.fai")] : []
     allele_res = params.allele_res ? file(params.allele_res) : []
     loci_res   = params.loci_res   ? file(params.loci_res)   : []
     gc_file    = params.gc_file    ? file(params.gc_file)    : []

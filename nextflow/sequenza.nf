@@ -73,7 +73,7 @@ process SEQUENZAUTILS_BAM2SEQZ {
         $args \\
         -n $normalbam \\
         -t $tumourbam \\
-        --fasta $fasta \\
+        --fasta ${fasta[0]} \\
         -gc $wigfile \\
         -o ${prefix}.seqz.gz
 
