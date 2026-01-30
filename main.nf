@@ -3,11 +3,11 @@
 nextflow.enable.dsl=2
 
 // Include the new process
-include { ASCAT } from './nextflow/ascat.nf'
-include { SEQUENZAUTILS_GCWIGGLE } from './nextflow/sequenza.nf'
-include { SEQUENZAUTILS_BAM2SEQZ } from './nextflow/sequenza.nf'
-include { SEQUENZAUTILS_BINNING }  from './nextflow/sequenza.nf'
-include { SEQUENZA_RUN }           from './nextflow/sequenza.nf'
+include { ASCAT } from './modules/ascat.nf'
+include { SEQUENZAUTILS_GCWIGGLE } from './modules/sequenza.nf'
+include { SEQUENZAUTILS_BAM2SEQZ } from './modules/sequenza.nf'
+include { SEQUENZAUTILS_BINNING }  from './modules/sequenza.nf'
+include { SEQUENZA_RUN }           from './modules/sequenza.nf'
 
 workflow {
     // Prepare global reference files from params
