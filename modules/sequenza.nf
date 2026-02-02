@@ -1,3 +1,7 @@
+#!/usr/bin/env nextflow
+
+nextflow.enable.dsl=2
+
 process SEQUENZAUTILS_GCWIGGLE {
     tag "$meta.id"
     label 'process_low'
