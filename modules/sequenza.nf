@@ -46,116 +46,16 @@ process SEQUENZAUTILS_GCWIGGLE {
     """
 }
 
-process SEQUENZAUTILS_BAM2SEQZ {
-    tag "$meta.id"
-    label 'process_medium'
-
-    container "docker://drtomc/sequenza-utils:latest"
-
-    input:
-    tuple val(meta), path(normalbam), path(tumourbam)
-    path fasta
-    path wigfile
-
-    output:
-    tuple val(meta), path("*.gz"), emit: seqz
-    path "versions.yml"          , emit: versions
-
-    when:
-    task.ext.when == null || task.ext.when
-
-    script:
-    def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
-    """
-    sequenza-utils \\
-        bam2seqz \\
-        $args \\
-        -n $normalbam \\
-        -t $tumourbam \\
-        --fasta ${fasta[0]} \\
-        -gc $wigfile \\
-        -o ${prefix}.seqz.gz
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        sequenzautils: \$(echo \$(sequenza-utils 2>&1) | sed 's/^.*is version //; s/ .*\$//')
-    END_VERSIONS
-    """
-
-    stub:
-    def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
-    """
-    echo | gzip > ${prefix}.gz
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        sequenzautils: \$(echo \$(sequenza-utils 2>&1) | sed 's/^.*is version //; s/ .*\$//')
-    END_VERSIONS
-    """
-}
-
-process SEQUENZAUTILS_BINNING {
-    tag "$meta.id"
-    label 'process_medium'
-
-    container "docker://drtomc/sequenza-utils:latest"
-
-    input:
-    tuple val(meta), path(seqz)
-
-    output:
-    tuple val(meta), path("*.seqz.gz")     , emit: binned_seqz
-    tuple val(meta), path("*.seqz.gz.tbi") , emit: index, optional: true
-    path "versions.yml"                    , emit: versions
-
-    when:
-    task.ext.when == null || task.ext.when
-
-    script:
-    def args = task.ext.args ?: [:] 
-    def prefix = task.ext.prefix ?: "${meta.id}"
-
-    def window_arg = args.window ? "${args.window}" : "50"
-    def output_arg = args.output ? "${args.output}" : "${prefix}.bin.seqz.gz"
-    def tabix_arg  = args.tabix  ? "${args.tabix}"  : "tabix"
-
-    """
-    sequenza-utils \\
-        seqz_binning \\
-        -s $seqz \\
-        -w $window_arg \\
-        -o $output_arg \\
-        -T $tabix_arg
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        sequenzautils: \$(echo \$(sequenza-utils 2>&1) | sed 's/^.*is version //; s/ .*\$//')
-    END_VERSIONS
-    """
-
-    stub:
-    def prefix = task.ext.prefix ?: "${meta.id}"
-    """
-    touch ${prefix}.bin.seqz.gz
-    touch ${prefix}.bin.seqz.gz.tbi
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        sequenzautils: \$(echo \$(sequenza-utils 2>&1) | sed 's/^.*is version //; s/ .*\$//')
-    END_VERSIONS
-    """
-}
-
 process SEQUENZA_RUN {
-    tag "${meta.id}_g${gamma}"
-    label 'process_medium'
+    tag "$meta.id"
+    label 'process_high'
 
     container "docker://sequenza/sequenza"
 
     input:
-    tuple val(meta), path(seqz), val(gamma)
+    tuple val(meta), path(normalbam), path(tumourbam), path(normalbai), path(tumourbai)
+    path fasta
+    path wigfile
 
     output:
     tuple val(meta), path("${prefix}*"), emit: results
@@ -166,44 +66,45 @@ process SEQUENZA_RUN {
 
     script:
     def args = task.ext.args ?: [:]
-    // We define the prefix here so it's available for both the script and the output block
-    prefix = args.prefix ? "${args.prefix}_gamma${gamma}" : "${meta.id}_gamma${gamma}"
+    prefix = args.prefix ? "${args.prefix}" : "${meta.id}"
     
-    // Gender logic based on meta
-    def female_flag = (meta.gender =~ /(?i)XX/) ? "TRUE" : "FALSE"
-
-    // Map-style argument setup
-    def ref_assembly   = args.ref_assembly   ?: "hg38"
-    def genome_size    = args.genome_size    ?: 23
-    def breaks_method  = args.breaks_method  ?: "het"
-    def fit_method     = args.fit_method     ?: "baf"
-    def ploidy_file    = args.ploidy_file    ?: "NULL"
-    def window         = args.window         ?: 50
-    def type           = args.type           ?: "all"
-    def maxvar         = args.maxvar         ?: 20
-    def min_reads_n    = args.min_reads_normal ?: 10
-    def min_reads_b    = args.min_reads_baf    ?: 1
-    def height         = args.height         ?: 440
-    def width          = args.width          ?: 1440
+    // Arguments
+    def x_flag = (meta.gender =~ /(?i)XX/) ? "--x-heterozygous" : ""
+    def store_seqz = args.store_seqztmp ? "--store_seqztmp" : ""
+    def ignore_normal = args.ignore_normal ? "--ignore_normal" : ""
+    def ratio_priority = args.ratio_priority ? "--ratio_priority" : ""
+    def no_archive = args.no_archive ? "--no_archive" : ""
+    def bin_size = args.bin_size ?: "50"
+    def cellularity_range = args.cellularity_range ?: "0-1"
+    def ploidy_range = args.ploidy_range ?: "1-7"
+    def cellularity_arg = args.cellularity ? "--cellularity ${args.cellularity}" : ""
+    def ploidy_arg = args.ploidy ? "--ploidy ${args.ploidy}" : ""
+    def breaks_arg = args.breaks_file ? "--breaks ${args.breaks_file}" : ""
+    def tmp_arg = args.tmp_dir ? "--tmp ${args.tmp_dir}" : ""
 
     """
-    Rscript /path/to/your/SEQUENZA_SCRIPT.R \\
-        --seqz_file $seqz \\
-        --prefix $prefix \\
-        --gamma $gamma \\
-        --female $female_flag \\
-        --ref_assembly $ref_assembly \\
-        --genome_size $genome_size \\
-        --breaks_method $breaks_method \\
-        --fit_method $fit_method \\
-        --ploidy_file $ploidy_file \\
-        --window $window \\
-        --type $type \\
-        --maxvar $maxvar \\
-        --min.reads.normal $min_reads_n \\
-        --min.reads.baf $min_reads_b \\
-        --height $height \\
-        --width $width
+    sequenza-pipeline \\
+    --sample-id ${prefix} \\
+    --normal-bam $normalbam \\
+    --tumor-bam $tumourbam \\
+    --normal-bam-index $normalbai \\
+    --tumor-bam-index $tumourbai \\
+    --reference-gz ${fasta[0]} \\
+    --gc_wig $wigfile \\
+    --bin $bin_size \\
+    --ncpu ${task.cpus} \\
+    --mem ${task.memory.toGiga()} \\
+    $breaks_arg \\
+    $x_flag \\
+    $store_seqz \\
+    $ignore_normal \\
+    $ratio_priority \\
+    $cellularity_arg \\
+    $ploidy_arg \\
+    --cellularity-range $cellularity_range \\
+    --ploidy-range $ploidy_range \\
+    $no_archive \\
+    $tmp_arg
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -212,14 +113,17 @@ process SEQUENZA_RUN {
     """
 
     stub:
-    prefix = "${meta.id}_gamma${gamma}"
+    def args = task.ext.args ?: [:]
+    prefix = args.prefix ? "${args.prefix}" : "${meta.id}"
     """
-    touch ${prefix}_segments.txt
-    touch ${prefix}_purity_ploidy.txt
+    mkdir -p ${prefix}_results
+    touch ${prefix}_results/${prefix}_segments.txt
+    touch ${prefix}_results/${prefix}_purity_ploidy.txt
+    touch ${prefix}_results/${prefix}_alternative_fit.pdf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sequenza: 1.0.0
+        sequenza: \$(Rscript -e "library(sequenza); cat(as.character(packageVersion('sequenza')))")
     END_VERSIONS
     """
 }
