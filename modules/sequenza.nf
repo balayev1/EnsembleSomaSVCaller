@@ -57,7 +57,7 @@ process SEQUENZA_RUN {
     container "docker://sequenza/sequenza"
 
     input:
-    tuple val(meta), path(normalbam), path(tumourbam), path(normalbai), path(tumourbai)
+    tuple val(meta), path(normalbam), path(normalbai), path(tumourbam), path(tumourbai)
     path fasta
     path wigfile
 
