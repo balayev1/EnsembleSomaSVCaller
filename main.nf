@@ -5,9 +5,7 @@ nextflow.enable.dsl=2
 // Include the new process
 include { ASCAT } from './modules/ascat.nf'
 include { SEQUENZAUTILS_GCWIGGLE } from './modules/sequenza.nf'
-include { SEQUENZAUTILS_BAM2SEQZ } from './modules/sequenza.nf'
-include { SEQUENZAUTILS_BINNING }  from './modules/sequenza.nf'
-include { SEQUENZA_RUN }           from './modules/sequenza.nf'
+include { SEQUENZA_RUN } from './modules/sequenza.nf'
 
 workflow {
     // Prepare global reference files from params
@@ -17,9 +15,6 @@ workflow {
     gc_file    = params.gc_file    ? file(params.gc_file)    : []
     rt_file    = params.rt_file    ? file(params.rt_file)    : []
     bed_file   = params.bed_file   ? file(params.bed_file)   : []
-
-    // Gamma range for Sequenza
-    ch_gammas  = Channel.fromList(params.gamma ?: [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1250, 1500, 2000])
 
     // Setup Input Channel
     ch_samples = Channel.fromPath(params.input)
@@ -55,20 +50,8 @@ workflow {
     ch_wiggle_ref = SEQUENZAUTILS_GCWIGGLE( [ [id:'genome_ref'], fasta ] ).wig.map{ it[1] }.first()
 
     // Convert BAM to SEQZ
-    ch_bam_pairs = ch_samples.map { meta, n_bam, n_bai, t_bam, t_bai -> [ meta, n_bam, t_bam ] }
-    
-    SEQUENZAUTILS_BAM2SEQZ (
-        ch_bam_pairs,
-        fasta,
-        ch_wiggle_ref
-    )
+    ch_bam_pairs = ch_samples.map { meta, n_bam, n_bai, t_bam, t_bai -> [ meta, n_bam, t_bam, n_bai, t_bai ] }
 
-    // Binning SEQZ files
-    SEQUENZAUTILS_BINNING ( SEQUENZAUTILS_BAM2SEQZ.out.seqz )
-
-    // Run Sequenza (Sample x Gamma)
-    // .combine creates the cartesian product of samples and gammas
-    ch_run_input = SEQUENZAUTILS_BINNING.out.binned_seqz.combine(ch_gammas)
-
-    SEQUENZA_RUN ( ch_run_input )
+    // Run Sequenza
+    SEQUENZA_RUN ( ch_bam_pairs, fasta, ch_wiggle_ref )
 }
