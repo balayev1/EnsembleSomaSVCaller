@@ -49,9 +49,6 @@ workflow {
     // We use .first() so it only runs once and provides the file to all samples
     ch_wiggle_ref = SEQUENZAUTILS_GCWIGGLE( [ [id:'genome_ref'], fasta ] ).wig.map{ it[1] }.first()
 
-    // Convert BAM to SEQZ
-    ch_bam_pairs = ch_samples.map { meta, n_bam, n_bai, t_bam, t_bai -> [ meta, n_bam, t_bam, n_bai, t_bai ] }
-
     // Run Sequenza
-    SEQUENZA_RUN ( ch_bam_pairs, fasta, ch_wiggle_ref )
+    SEQUENZA_RUN ( ch_samples, fasta, ch_wiggle_ref )
 }
