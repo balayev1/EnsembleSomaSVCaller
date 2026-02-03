@@ -51,8 +51,4 @@ workflow {
 
     // Run Sequenza
     SEQUENZA_RUN ( ch_samples, fasta, ch_wiggle_ref )
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> a09012a (Modified)

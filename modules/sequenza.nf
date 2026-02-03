@@ -72,45 +72,6 @@ process SEQUENZA_RUN {
     def args = task.ext.args ?: [:]
     prefix = args.prefix ? "${args.prefix}" : "${meta.id}"
     
-<<<<<<< HEAD
-    // Arguments
-    def x_flag = (meta.gender =~ /(?i)XX/) ? "--x-heterozygous" : ""
-    def store_seqz = args.store_seqztmp ? "--store_seqztmp" : ""
-    def ignore_normal = args.ignore_normal ? "--ignore_normal" : ""
-    def ratio_priority = args.ratio_priority ? "--ratio_priority" : ""
-    def no_archive = args.no_archive ? "--no_archive" : ""
-    def bin_size = args.bin_size ?: "50"
-    def cellularity_range = args.cellularity_range ?: "0-1"
-    def ploidy_range = args.ploidy_range ?: "1-7"
-    def cellularity_arg = args.cellularity ? "--cellularity ${args.cellularity}" : ""
-    def ploidy_arg = args.ploidy ? "--ploidy ${args.ploidy}" : ""
-    def breaks_arg = args.breaks_file ? "--breaks ${args.breaks_file}" : ""
-    def tmp_arg = args.tmp_dir ? "--tmp ${args.tmp_dir}" : ""
-
-    """
-    sequenza-pipeline \\
-    --sample-id ${prefix} \\
-    --normal-bam $normalbam \\
-    --tumor-bam $tumourbam \\
-    --normal-bam-index $normalbai \\
-    --tumor-bam-index $tumourbai \\
-    --reference-gz ${fasta[0]} \\
-    --gc_wig $wigfile \\
-    --bin $bin_size \\
-    --ncpu ${task.cpus} \\
-    --mem ${task.memory.toGiga()} \\
-    $breaks_arg \\
-    $x_flag \\
-    $store_seqz \\
-    $ignore_normal \\
-    $ratio_priority \\
-    $cellularity_arg \\
-    $ploidy_arg \\
-    --cellularity-range $cellularity_range \\
-    --ploidy-range $ploidy_range \\
-    $no_archive \\
-    $tmp_arg
-=======
     def options = []
 
     // Optional arguments
