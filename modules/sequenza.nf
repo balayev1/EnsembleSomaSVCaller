@@ -108,11 +108,11 @@ process SEQUENZA_RUN {
     --tumor-bam $tumourbam \\
     --reference-gz ${fasta[0]} \\
     --gc_wig $wigfile \\
-    --bin ${args.bin_size ?: 50} \\
+    --bin $bin_size \\
     --ncpu ${task.cpus} \\
     --mem ${task.memory.toGiga()} \\
-    --cellularity-range ${args.cellularity_range ?: "0-1"} \\
-    --ploidy-range ${args.ploidy_range ?: "1-7"} \\
+    --cellularity-range $cellularity_range \\
+    --ploidy-range $ploidy_range \\
     --tmp \$TMPDIR \\
     ${cmd_bool_options}
 
