@@ -72,6 +72,7 @@ process SEQUENZA_RUN {
     def args = task.ext.args ?: [:]
     prefix = args.prefix ? "${args.prefix}" : "${meta.id}"
     
+<<<<<<< HEAD
     // Arguments
     def x_flag = (meta.gender =~ /(?i)XX/) ? "--x-heterozygous" : ""
     def store_seqz = args.store_seqztmp ? "--store_seqztmp" : ""
@@ -109,7 +110,57 @@ process SEQUENZA_RUN {
     --ploidy-range $ploidy_range \\
     $no_archive \\
     $tmp_arg
+=======
+    def options = []
 
+    // Optional arguments
+    if (args.store_seqztmp)  options << "--store_seqztmp"
+    if (args.ignore_normal)  options << "--ignore_normal"
+    if (args.ratio_priority) options << "--ratio_priority"
+    if (args.no_archive)     options << "--no_archive"
+    if (meta.gender =~ /(?i)XX/) options << "--x-heterozygous"
+
+    if (args.cellularity)    options << "--cellularity ${args.cellularity}"
+    if (args.ploidy)         options << "--ploidy ${args.ploidy}"
+    if (args.breaks_file)    options << "--breaks ${args.breaks_file}"
+
+    def cmd_bool_options = options.join(' ')
+
+    def bin_size = args.bin_size ?: "50"
+    def cellularity_range = args.cellularity_range ?: "0-1"
+    def ploidy_range = args.ploidy_range ?: "1-7"
+
+    """
+    # Set up temporary directory
+    if [ -z "${args.tmp_dir ?: ''}" ]; then
+        export TMPDIR="\$(pwd)/tmp_sequenza_${meta.id}"
+    else
+        export TMPDIR="${args.tmp_dir}"
+    fi
+>>>>>>> a09012a (Modified)
+
+    mkdir -p "\$TMPDIR"
+
+    # Run Sequenza Pipeline
+    sequenza-pipeline \\
+    --sample-id ${prefix} \\
+    --normal-bam $normalbam \\
+    --tumor-bam $tumourbam \\
+    --reference-gz ${fasta[0]} \\
+    --gc_wig $wigfile \\
+    --bin ${args.bin_size ?: 50} \\
+    --ncpu ${task.cpus} \\
+    --mem ${task.memory.toGiga()} \\
+    --cellularity-range ${args.cellularity_range ?: "0-1"} \\
+    --ploidy-range ${args.ploidy_range ?: "1-7"} \\
+    --tmp \$TMPDIR \\
+    ${cmd_bool_options}
+
+    # Clean up temporary directory
+    if [[ "\$TMPDIR" == *"/tmp_sequenza_${meta.id}"* ]]; then
+        rm -rf "\$TMPDIR"
+    fi
+    
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         sequenza: \$(Rscript -e "library(sequenza); cat(as.character(packageVersion('sequenza')))")
