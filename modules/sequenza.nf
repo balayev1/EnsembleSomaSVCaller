@@ -98,7 +98,6 @@ process SEQUENZA_RUN {
     else
         export TMPDIR="${args.tmp_dir}"
     fi
->>>>>>> a09012a (Modified)
 
     mkdir -p "\$TMPDIR"
 
