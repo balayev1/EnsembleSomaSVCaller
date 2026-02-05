@@ -62,7 +62,7 @@ process SEQUENZA_RUN {
     path wigfile
 
     output:
-    tuple val(meta), path("**/ ${prefix}*"), emit: results
+    tuple val(meta), path("**/${prefix}*"), emit: results
     path "versions.yml"                , emit: versions
 
     when:
