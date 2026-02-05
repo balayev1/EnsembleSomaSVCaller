@@ -14,19 +14,19 @@ workflow {
     loci_res   = params.loci_res   ? file(params.loci_res)   : []
     gc_file    = params.gc_file    ? file(params.gc_file)    : []
     rt_file    = params.rt_file    ? file(params.rt_file)    : []
-    bed_file   = params.bed_file   ? file(params.bed_file)   : []
+    bed_file   = params.bed_file   ? file(params.bed_file)   : [
 
     // Setup Input Channel
     ch_samples = Channel.fromPath(params.input)
-        .splitCsv(header:true)
+        .splitCsv(sep: '\t')
         .map { row -> 
-            def meta = [ id: row.subjectID, gender: row.gender ]
+            def meta = [ id: row[0], gender: row[5] ]
             
             // This ensures we find 'sample.bai' instead of 'sample.bam.bai'
-            def normal_bam = file(row.normalBAM)
-            def normal_bai = file(row.normalBAM.replaceFirst(/\.bam$/, ".bai"))
-            def tumor_bam  = file(row.tumorBAM)
-            def tumor_bai  = file(row.tumorBAM.replaceFirst(/\.bam$/, ".bai"))
+            def normal_bam = file(row[1])
+            def normal_bai = file(row[2])
+            def tumor_bam  = file(row[3])
+            def tumor_bai  = file(row[4])
 
             return [ meta, normal_bam, normal_bai, tumor_bam, tumor_bai ]
         }
