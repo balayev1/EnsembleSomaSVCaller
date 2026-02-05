@@ -62,7 +62,7 @@ process SEQUENZA_RUN {
     path wigfile
 
     output:
-    tuple val(meta), path("${prefix}*"), emit: results
+    tuple val(meta), path("**/ ${prefix}*"), emit: results
     path "versions.yml"                , emit: versions
 
     when:
@@ -71,7 +71,7 @@ process SEQUENZA_RUN {
     script:
     def args = task.ext.args ?: [:]
     prefix = args.prefix ? "${args.prefix}" : "${meta.id}"
-    
+
     def options = []
 
     // Optional arguments
@@ -92,18 +92,15 @@ process SEQUENZA_RUN {
     def ploidy_range = args.ploidy_range ?: "1-7"
 
     """
-    # Set up temporary directory
-    export TMPDIR=/tmp
-
-    # Sequenza-pipeline is picky about index naming. Create symlinks if necessary.
-    [ ! -f ${normalbam}.bai ] && ln -s $normalbai ${normalbam}.bai
-    [ ! -f ${tumourbam}.bai ] && ln -s $tumourbai ${tumourbam}.bai
+    chmod +x ${workflow.projectDir}/bin/sequenza-pipeline
 
     # Run Sequenza Pipeline
     sequenza-pipeline \\
     --sample-id ${prefix} \\
     --normal-bam $normalbam \\
     --tumor-bam $tumourbam \\
+    --normal-bam-index $normalbai \\
+    --tumor-bam-index $tumourbai \\
     --reference-gz ${fasta[0]} \\
     --gc_wig $wigfile \\
     --bin $bin_size \\
@@ -111,9 +108,9 @@ process SEQUENZA_RUN {
     --mem ${task.memory.toGiga()} \\
     --cellularity-range $cellularity_range \\
     --ploidy-range $ploidy_range \\
-    --tmp /tmp \\
+    --tmp . \\
     ${cmd_bool_options}
-    
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         sequenza: \$(Rscript -e "library(sequenza); cat(as.character(packageVersion('sequenza')))")

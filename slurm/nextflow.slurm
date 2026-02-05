@@ -4,8 +4,8 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=40G
 #SBATCH --time=24:00:00
-#SBATCH --output=nf_somasv_%j.out
-#SBATCH --error=nf_somasv_%j.err
+#SBATCH --output=logs/nf_somasv_%j.out
+#SBATCH --error=logs/nf_somasv_%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=balay011@umn.edu
 
