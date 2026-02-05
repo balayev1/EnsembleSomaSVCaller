@@ -93,13 +93,11 @@ process SEQUENZA_RUN {
 
     """
     # Set up temporary directory
-    if [ -z "${args.tmp_dir ?: ''}" ]; then
-        export TMPDIR="\$(pwd)/tmp_sequenza_${meta.id}"
-    else
-        export TMPDIR="${args.tmp_dir}"
-    fi
+    export TMPDIR=/tmp
 
-    mkdir -p "\$TMPDIR"
+    # Sequenza-pipeline is picky about index naming. Create symlinks if necessary.
+    [ ! -f ${normalbam}.bai ] && ln -s $normalbai ${normalbam}.bai
+    [ ! -f ${tumourbam}.bai ] && ln -s $tumourbai ${tumourbam}.bai
 
     # Run Sequenza Pipeline
     sequenza-pipeline \\
@@ -113,13 +111,8 @@ process SEQUENZA_RUN {
     --mem ${task.memory.toGiga()} \\
     --cellularity-range $cellularity_range \\
     --ploidy-range $ploidy_range \\
-    --tmp \$TMPDIR \\
+    --tmp /tmp \\
     ${cmd_bool_options}
-
-    # Clean up temporary directory
-    if [[ "\$TMPDIR" == *"/tmp_sequenza_${meta.id}"* ]]; then
-        rm -rf "\$TMPDIR"
-    fi
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
