@@ -6,6 +6,7 @@ nextflow.enable.dsl=2
 include { ASCAT } from './modules/ascat.nf'
 include { SEQUENZAUTILS_GCWIGGLE } from './modules/sequenza.nf'
 include { SEQUENZA_RUN } from './modules/sequenza.nf'
+include { FACETS } from './modules/facets.nf'
 
 workflow {
     // Prepare global reference files from params
@@ -14,7 +15,7 @@ workflow {
     loci_res   = params.loci_res   ? file(params.loci_res)   : []
     gc_file    = params.gc_file    ? file(params.gc_file)    : []
     rt_file    = params.rt_file    ? file(params.rt_file)    : []
-    bed_file   = params.bed_file   ? file(params.bed_file)   : [
+    bed_file   = params.bed_file   ? file(params.bed_file)   : []
 
     // Setup Input Channel
     ch_samples = Channel.fromPath(params.input)
@@ -44,11 +45,44 @@ workflow {
     )
     */
 
-    // Run the Sequenza workflow
+    // Run the SEQUENZA process
     // Generate GC Wiggle Reference
     // We use .first() so it only runs once and provides the file to all samples
     ch_wiggle_ref = SEQUENZAUTILS_GCWIGGLE( [ [id:'genome_ref'], fasta ] ).wig.map{ it[1] }.first()
 
-    // Run Sequenza
-    SEQUENZA_RUN ( ch_samples, fasta, ch_wiggle_ref )
+    // Run SEQUENZA
+    SEQUENZA_RUN ( 
+        ch_samples, 
+        fasta, 
+        ch_wiggle_ref 
+        )
+
+    // Run the FACETS process
+    // Set FACETS-specific parameters
+    // VCF file with common polymoprhisms
+    if (!params.facets_snp_vcf) {
+        error "FACETS requires a SNP VCF file! Please specify 'params.facets_snp_vcf' in your config."
+    }
+    snp_vcf = file(params.facets_snp_vcf, checkIfExists: true)
+    idx_tbi = file("${params.facets_snp_vcf}.tbi")
+    idx_csi = file("${params.facets_snp_vcf}.csi")
+    snp_vcf_index = idx_tbi.exists() ? idx_tbi : (idx_csi.exists() ? idx_csi : null)
+    if (!snp_vcf_index) {
+        error "Could not find an index file for ${snp_vcf}. \nExpected: ${snp_vcf}.tbi OR ${snp_vcf}.csi"
+    }
+
+    // Optional target and annotation BED files
+    targets_bed = params.facets_targets_bed ? file(params.facets_targets_bed) : []
+    annotation_bed = params.facets_annotation_bed ? file(params.facets_annotation_bed) : []
+    
+    // Run FACETS
+    FACETS (
+        ch_samples,
+        snp_vcf,
+        snp_vcf_index,
+        targets_bed,
+        annotation_bed
+    )
+
+
 }
