@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 process ASCAT {
     tag "${meta.id}"
     label 'process_medium'
