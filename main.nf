@@ -83,6 +83,4 @@ workflow {
         targets_bed,
         annotation_bed
     )
-
-
 }
