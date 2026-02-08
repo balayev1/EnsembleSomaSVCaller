@@ -18,7 +18,12 @@ nextflow run main.nf \
     -profile "$PROFILE" \
     --mpileup_qual "$MPILEUP_QUAL" \
     --snp_min_coverage "$SNP_MIN_COVERAGE" \
+    --beagle_reference "$BEAGLE_REF" \
+    --beagle_genetic_map "$BEAGLE_GMAP" \
+    --beagle_ref_ext "$BEAGLE_REF_EXT" \
+    --beagle_map_ext "$BEAGLE_GMAP_EXT" \
     --genome "$GENOME_VER" \
+    --refgenie_ignore "$REFGENIE_IGNORE" \
     -resume
 
 echo "nf-aceseq finished at $(date)"
