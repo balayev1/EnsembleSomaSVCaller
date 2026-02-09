@@ -10,8 +10,8 @@ module load nextflow
 module load singularity
 
 # TODO: DEFINE PATHS TO GITHUB REPOS
-ACESEQ_REPO="path/to/nf-aceseq"
-SOMASV_REPO="path/to/EnsembleSomaSVCaller"
+export ACESEQ_REPO="path/to/nf-aceseq" # <-- UPDATE THIS PATH
+export SOMASV_REPO="path/to/EnsembleSomaSVCaller" # <-- UPDATE THIS PATH
 
 # Create log directories for BOTH pipelines
 mkdir -p "${ACESEQ_REPO}/logs"
