@@ -6,7 +6,9 @@ process FACETS {
     tag "${meta.id}"
     label 'process_medium'
 
-    container "docker://blcdsdockerregistry/cnv_facets:0.16.0"
+    conda (params.enable_conda ? "" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://blcdsdockerregistry/cnv_facets:0.16.0':'blcdsdockerregistry/cnv_facets:0.16.0'}"
 
     input:
     tuple val(meta), path(input_normal), path(index_normal), path(input_tumor), path(index_tumor)

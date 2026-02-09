@@ -6,7 +6,9 @@ process SEQUENZAUTILS_GCWIGGLE {
     tag "$meta.id"
     label 'process_low'
 
-    container "docker://drtomc/sequenza-utils:latest"
+    conda (params.enable_conda ? "" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://drtomc/sequenza-utils:latest':'drtomc/sequenza-utils:latest'}"
 
     input:
     tuple val(meta), path(fasta)
@@ -54,7 +56,9 @@ process SEQUENZA_RUN {
     tag "$meta.id"
     label 'process_high'
 
-    container "docker://sequenza/sequenza"
+    conda (params.enable_conda ? "" : null)
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://sequenza/sequenza':'sequenza/sequenza'}"
 
     input:
     tuple val(meta), path(normalbam), path(normalbai), path(tumourbam), path(tumourbai)
