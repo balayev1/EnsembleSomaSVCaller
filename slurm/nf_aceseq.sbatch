@@ -14,7 +14,7 @@ echo "nf-aceseq started at $(date)"
 
 nextflow run main.nf \
     -profile "singularity" \
-    -c "$SOMASV_REPO/aceseq_msi.config" \
+    -c "${SOMASV_REPO}/conf/aceseq_msi.config" \
     -resume
 
 echo "nf-aceseq finished at $(date)"
