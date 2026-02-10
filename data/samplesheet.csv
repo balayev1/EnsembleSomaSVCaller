@@ -1,0 +1,2 @@
+sample,sex,sv,tumor,tumor_index,control,control_index
+sample_id,male,,/path/to/tumor.bam,/path/to/tumor.bai,/path/to/normal.bam,/path/to/normal.bai

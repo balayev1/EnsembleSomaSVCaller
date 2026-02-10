@@ -88,8 +88,8 @@ output_df <- data.frame(
     time  = gr_hg38_final$time
 )
 
-time10_hg38 <- output_df
+time10 <- output_df
 
 # save
-save(time10_hg38, file = file.path(outdir, "ReplicationTime_10cellines_mean_10KB_hg38.Rda"))
+save(time10, file = file.path(outdir, "ReplicationTime_10cellines_mean_10KB_hg38.Rda"))
 cat("Done! Saved as ReplicationTime_10cellines_mean_10KB_hg38.Rda\n")
