@@ -8,11 +8,11 @@ nextflow.enable.dsl=2
 
 params.options = [:]
 
-include { ASCAT }                 from './modules/local/ascat' addParams( options: params.options )
-include { FACETS }                from './modules/local/facets' addParams( options: params.options )
-include { SEQUENZAUTILS_GCWIGGLE } from './modules/local/sequenza_utils' addParams( options: params.options )
-include { SEQUENZA_RUN }          from './modules/local/sequenza_run' addParams( options: params.options )
-include { CHECK_ACESEQ_DIR }      from '../modules/local/check_aceseq'
+include { ASCAT }                 from './modules/nf-core/ascat/main.nf' addParams( options: params.options )
+include { FACETS }                from './modules/local/facets.nf' addParams( options: params.options )
+include { SEQUENZAUTILS_GCWIGGLE } from './modules/local/sequenza.nf' addParams( options: params.options )
+include { SEQUENZA_RUN }          from './modules/local/sequenza.nf' addParams( options: params.options )
+include { CHECK_ACESEQ_DIR }      from '../modules/local/check_aceseq.nf' addParams( options: params.options )
 
 // Zero-shot CNV Calling Workflow
 workflow ZERO_SHOT_CNV_CALL {

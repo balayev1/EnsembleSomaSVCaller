@@ -6,9 +6,6 @@ nextflow.enable.dsl=2
     VALIDATE INPUTS
 */
 
-// Validate input parameters
-WorkflowSomasvcaller.initialise(params, log)
-
 // Check input path parameters to see if they exist
 def checkPathParamList = [ params.input, params.fasta, params.allele_res, params.loci_res, params.gc_file, params.rt_file, params.facets_snp_vcf ]
 for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
@@ -40,7 +37,7 @@ facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPa
 /*
     IMPORT SUBWORKFLOWS
 */
-include { INPUT_PREP } from './subworkflows/input_prep'
+include { INPUT_PREP } from './subworkflows/input_prep.nf'
 include { ZERO_SHOT_CNV_CALL } from './subworkflows/zeroshot_cnv_calling.nf'
 
 /*
