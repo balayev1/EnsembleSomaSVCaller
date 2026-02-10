@@ -83,7 +83,7 @@ gr_hg38_final <- gr_hg38_grid[!is.na(gr_hg38_grid$time)]
 # tenkb index = floor(end / 10000)
 # ACEseq hg38 expects 'chr1', 'chr2' etc.
 output_df <- data.frame(
-    CHROM = as.character(seqnames(gr_hg38_final)),
+    CHROM = as.character(gsub("chr", "", seqnames(gr_hg38_final))),
     tenkb = ceiling(end(gr_hg38_final) / 10000),
     time  = gr_hg38_final$time
 )
