@@ -8,8 +8,9 @@ nextflow.enable.dsl=2
 
 params.options = [:]
 
-include { FRAGCOUNTER } from './modules/nf-core/fragcounter/main.nf' addParams( options: params.options )
-include { REBIN_RAW_FRAGCOUNTER } from './modules/nf-core/fragcounter/main.nf' addParams( options: params.options )
+// fragCounter
+include { BAM_FRAGCOUNTER as TUMOR_FRAGCOUNTER         } from '../subworkflows/bam_fragCounter/main'
+include { BAM_FRAGCOUNTER as NORMAL_FRAGCOUNTER        } from '../subworkflows/bam_fragCounter/main'
 
 // Genomic coverage acquisition workflow for JABBA
 workflow COVERAGE_JABBA {
@@ -24,53 +25,32 @@ workflow COVERAGE_JABBA {
     
     main:
     versions = Channel.empty()
-    fragcounter_raw_cov_tumor   = Channel.empty()
+    fragcounter_raw_cov   = Channel.empty()
     fragcounter_cov_tumor   = Channel.empty()
     corrected_bw_tumor      = Channel.empty()
     rebinned_raw_cov_tumor  = Channel.empty()
-
-    // Tumor input
-    ch_tumor = ch_samples.map { meta, tumor, tumor_bai, control, control_bai ->
-        return [ meta, tumor, tumor_bai ]
-    }
 
     // Control input
     ch_control = ch_samples.map { meta, tumor, tumor_bai, control, control_bai ->
         return [ meta, control, control_bai ]
     }
 
-    // Combine inputs
-    ch_fragcounter_input = ch_tumor.mix(ch_control)
+    // Tumor input
+    ch_tumor = ch_samples.map { meta, tumor, tumor_bai, control, control_bai ->
+        return [ meta, tumor, tumor_bai ]
+    }
 
-    // Run fragCounter on tumor and control samples
-    FRAGCOUNTER(
-        ch_fragcounter_input, 
-        midpoint, 
-        windowsize, 
-        gcmapdir, 
-        minmapq, 
-        fasta, 
-        fasta_fai, 
-        paired, 
-        exome
-    )
+    // Run fragCounter for tumor and normal samples
+    NORMAL_FRAGCOUNTER(ch_control, midpoint_frag, windowsize_frag, gcmapdir_frag, minmapq_frag, paired_frag, exome_frag)
+    //normal_frag_cov = Channel.empty().mix(NORMAL_FRAGCOUNTER.out.fragcounter_cov)
+    normal_frag_cov = Channel.empty().mix(NORMAL_FRAGCOUNTER.out.rebinned_raw_cov)
 
-    // Initialize outputs from fragCounter
-    fragcounter_raw_cov = FRAGCOUNTER.out.fragcounter_raw_cov
-    fragcounter_cov = FRAGCOUNTER.out.fragcounter_cov
-    corrected_bw = FRAGCOUNTER.out.corrected_bw
-    versions = FRAGCOUNTER.out.versions
+    TUMOR_FRAGCOUNTER(ch_tumor, midpoint_frag, windowsize_frag, gcmapdir_frag, minmapq_frag, paired_frag, exome_frag)
+    //tumor_frag_cov = Channel.empty().mix(TUMOR_FRAGCOUNTER.out.fragcounter_cov)
+    tumor_frag_cov = Channel.empty().mix(TUMOR_FRAGCOUNTER.out.rebinned_raw_cov)
 
-    // Rebin fragCounter output into 1kb windows
-    REBIN_RAW_FRAGCOUNTER(fragcounter_cov, "reads", 1000)
-    rebinned_raw_cov  = REBIN_RAW_FRAGCOUNTER.out.raw_fragcounter_cov_1kb
+    // Acquire fragCounter version
+    versions = versions.mix(NORMAL_FRAGCOUNTER.out.versions)
 
-    //
-    emit:
-    fragcounter_raw_cov
-    fragcounter_cov
-    rebinned_raw_cov
-    corrected_bw
-    
-    versions
+
 }
