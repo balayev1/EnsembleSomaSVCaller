@@ -8,18 +8,18 @@ process DRYCLEAN {
 
 
     input:
-    tuple val(meta), path(input)
-    path(pon)
-    val(center)
-    val(cbs)
-    val(cnsignif)
-    val(wholeGenome)
-    val(blacklist)
-    val(blacklist_path)
-    val(germline_filter)
-    val(germline_file)
-    val(field)
-    val(build)
+    tuple val(meta), path(input)            // Mandatory: Format should be [meta, cov(.rds file)]
+    path(pon)                               // Path to panel of normals .rds file       
+    val(center)                             // If TRUE, center the coverage before drycleaning: Default is TRUE
+    val(cbs)                                // If TRUE, perform CBS segmentation on the drycleaned coverage: Default is FALSE
+    val(cnsignif)                           // Significance levels for the test to accept change-points in cbs: Default is 1e-5    
+    val(wholeGenome)                        // Boolean to run in whole genome mode: Default is TRUE
+    val(blacklist)                          // Boolean to use blacklist markers: Default is FALSE
+    val(blacklist_path)                     // If blacklist == TRUE, path to blacklist GRanges object
+    val(germline_filter)                    // Boolean to filter common germline events: Default is FALSE
+    val(germline_file)                      // If germline_filter == TRUE, path to file annotated with germline calls
+    val(field)                              // Field name in GRanges metadata to use for drycleaning: Default is "reads.corrected"
+    val(build)                              // Genome build hg19/hg38 for human samples: Default is "hg19"
 
     output:
     tuple val(meta), path("*cov.rds")                 , emit: decomposed_cov

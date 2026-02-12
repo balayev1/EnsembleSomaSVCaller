@@ -8,7 +8,7 @@ process FRAGCOUNTER {
         'mskilab/fragcounter:0.3' }"
 
     input:
-    tuple val(meta), path(bam), path(bai)                    // Mandatory: Format should be [meta, bam, bai] : can also provide cram & crai
+    tuple val(meta), path(bam), path(bai)                    // Mandatory: Format should be [meta, bam, bai]
     val(midpoint)                                            // If TRUE only count midpoint if FALSE then count bin footprint of every fragment interval : Default is TRUE
     val(windowsize)                                          // Bin size: Default is 200
     path(gcmapdir)                                           // Directory containing GC & Mappability bias .rds files

@@ -42,6 +42,18 @@ midpoint_frag      = params.midpoint_frag      ?: Channel.empty()
 paired_frag        = params.paired_frag        ?: Channel.empty()
 exome_frag         = params.exome_frag         ?: Channel.empty()
 
+// dryclean parameters
+pon_dryclean           = params.pon_dryclean           ? Channel.fromPath(params.pon_dryclean).collect() : Channel.empty()
+center_dryclean        = params.center_dryclean        ?: Channel.empty()
+cbs_dryclean           = params.cbs_dryclean           ?: Channel.empty()
+cnsignif_dryclean      = params.cnsignif_dryclean      ?: Channel.empty()
+wholeGenome_dryclean   = params.wholeGenome_dryclean   ?: Channel.empty()
+blacklist_dryclean     = params.blacklist_dryclean     ?: Channel.empty()
+blacklist_path_dryclean= params.blacklist_path_dryclean? Channel.fromPath(params.blacklist_path_dryclean).collect() : Channel.empty()
+germline_filter_dryclean= params.germline_filter_dryclean ?: Channel.empty()
+germline_file_dryclean = params.germline_file_dryclean ? Channel.fromPath(params.germline_file_dryclean).collect() : Channel.empty()
+field_dryclean         = params.field_dryclean         ?: Channel.empty()
+build_dryclean         = params.build_dryclean         ?: Channel.empty()
 
 /*
     IMPORT SUBWORKFLOWS
