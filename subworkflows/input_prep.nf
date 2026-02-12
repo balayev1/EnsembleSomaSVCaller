@@ -27,7 +27,7 @@ workflow INPUT_PREP {
             if (!file(row.tumor).exists()) error "Tumor BAM not found: ${row.tumor}"
             if (!file(row.tumor_index).exists()) error "Tumor Index not found: ${row.tumor_index}"
 
-            // Construct [ val(meta), [normal],[normal.bai],[ tumor], [tumor.bai]]
+            // Construct [ val(meta), [control], [control_index],[ tumor], [tumor_index]]
             return [
                 meta,
                 file(row.control),       // Input Normal
@@ -38,5 +38,5 @@ workflow INPUT_PREP {
         }
 
     emit:
-    ch_samples // channel: [ val(meta), [normal],[normal.bai],[ tumor], [tumor.bai]]
+    ch_samples // channel: [ val(meta), [control], [control_index],[ tumor], [tumor_index]]
 }

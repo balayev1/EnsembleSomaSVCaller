@@ -34,6 +34,11 @@ facets_targets_bed      = params.facets_targets_bed             ? Channel.fromPa
 facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPath(params.facets_annotation_bed, checkIfExists: true)
                                                                 : Channel.empty()
 
+// Hetpileups parameters
+hapmap_sites       = params.hapmap_sites       ? Channel.fromPath(params.hapmap_sites).collect()      : Channel.empty()
+filter_hets         = params.filter_hets       ?: Channel.empty()
+max_depth           = params.max_depth         ?: Channel.empty()
+
 // fragCounter parameters
 gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdir_frag).collect() : Channel.empty()
 windowsize_frag    = params.windowsize_frag    ?: Channel.empty()
@@ -60,6 +65,7 @@ build_dryclean         = params.build_dryclean         ?: Channel.empty()
 */
 include { INPUT_PREP } from './subworkflows/input_prep.nf'
 include { ZERO_SHOT_CNV_CALL } from './subworkflows/zeroshot_cnv_calling.nf'
+include { BAM_HETPILEUPS } from './subworkflows/bam_hetpileups/main.nf'
 
 /*
     MAIN WORKFLOW
@@ -91,4 +97,41 @@ workflow SOMASV_CALLER {
         facets_annotation_bed
     )
     ch_versions    = ch_versions.mix(ZERO_SHOT_CNV_CALL.out.versions)
+
+    //
+    // SUBWORKFLOW: Generate GC- and mappability-corrected denoised genomic coverage files for JAbBA
+    //
+    COVERAGE_JABBA (
+        ch_samples, 
+        midpoint_frag, 
+        windowsize_frag, 
+        gcmapdir_frag, 
+        minmapq_frag, 
+        paired_frag, 
+        exome_frag, 
+        pon_dryclean, 
+        center_dryclean, 
+        cbs_dryclean, 
+        cnsignif_dryclean, 
+        wholeGenome_dryclean, 
+        blacklist_dryclean, 
+        blacklist_path_dryclean, 
+        germline_filter_dryclean, 
+        germline_file_dryclean, 
+        field_dryclean, 
+        build_dryclean
+    )
+    ch_versions    = ch_versions.mix(COVERAGE_JABBA.out.versions)
+
+    //
+    // SUBWORKFLOW: Generate heterozygous pileups file for JabBa
+    //
+    BAM_HETPILEUPS (
+        ch_samples, 
+        filter_hets, 
+        max_depth,
+        hapmap_sites
+    )
+    ch_versions = ch_versions.mix(BAM_HETPILEUPS.out.versions)
+    sites_from_het_pileups_wgs = Channel.empty().mix(BAM_HETPILEUPS.out.het_pileups_wgs)
 }
