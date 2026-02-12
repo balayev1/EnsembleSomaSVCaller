@@ -34,6 +34,15 @@ facets_targets_bed      = params.facets_targets_bed             ? Channel.fromPa
 facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPath(params.facets_annotation_bed, checkIfExists: true)
                                                                 : Channel.empty()
 
+// fragCounter parameters
+gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdir_frag).collect() : Channel.empty()
+windowsize_frag    = params.windowsize_frag    ?: Channel.empty()
+minmapq_frag       = params.minmapq_frag       ?: Channel.empty()
+midpoint_frag      = params.midpoint_frag      ?: Channel.empty()
+paired_frag        = params.paired_frag        ?: Channel.empty()
+exome_frag         = params.exome_frag         ?: Channel.empty()
+
+
 /*
     IMPORT SUBWORKFLOWS
 */
