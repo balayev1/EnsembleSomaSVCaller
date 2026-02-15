@@ -26,28 +26,24 @@ done
 # remove duplicates -> 
 # remove variants with missing genotypes -> 
 # compress and index
-for CHR in {1..22} X; do
+for CHR in {1..22}; do
     echo "Processing Chr ${CHR}..."
-    bcftools annotate --rename-chrs chr_names.txt \
-        	1kGP_high_coverage_Illumina.chr${CHR}.filtered.SNV_INDEL_SV_phased_panel.vcf.gz -Ou | \
+    bcftools view -e 'INFO/SVTYPE!="."' 1kGP_high_coverage_Illumina.chr${CHR}.filtered.SNV_INDEL_SV_phased_panel.vcf.gz -Ou | \
     bcftools view -e 'INFO/AC<3' -Ou | \
     bcftools norm -m -any -Ou | \
-    bcftools view -i 'INFO/VT="SNP" | INFO/VT="INDEL"' -Ou | \
-    bcftools norm -f $ref_file -Ou | \
-    bcftools annotate --set-id '%CHROM\_%POS\_%REF\_%ALT' -Ou | \
+    bcftools norm -f "$ref_file" -Ou | \
+    bcftools annotate --set-id '%CHROM:%POS:%REF:%ALT' -Ou | \
     bcftools norm -d any -Ou | \
     bcftools view -g ^miss -Oz -o 1000GP_chr${CHR}.vcf.gz
 done
 
 for CHR in X; do
     echo "Processing Chr ${CHR}..."
-    bcftools annotate --rename-chrs chr_names.txt \
-        ALL.chr${CHR}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz -Ou | \
+    bcftools view -e 'INFO/SVTYPE!="."' 1kGP_high_coverage_Illumina.chrX.filtered.SNV_INDEL_SV_phased_panel.v2.vcf.gz -Ou | \
     bcftools view -e 'INFO/AC<3' -Ou | \
     bcftools norm -m -any -Ou | \
-    bcftools view -i 'INFO/VT="SNP" | INFO/VT="INDEL"' -Ou | \
-    bcftools norm -f $ref_file -Ou | \
-    bcftools annotate --set-id '%CHROM\_%POS\_%REF\_%ALT' -Ou | \
+    bcftools norm -f "$ref_file" -Ou | \
+    bcftools annotate --set-id '%CHROM:%POS:%REF:%ALT' -Ou | \
     bcftools norm -d any -Ou | \
     bcftools view -g ^miss -Oz -o 1000GP_chr${CHR}.vcf.gz
 done
@@ -61,7 +57,7 @@ bcftools view -Oz -o "1000GP_chr23.vcf.gz"
 mv 1000GP_chr23.vcf.gz 1000GP_chrX.vcf.gz
 
 # Delete original VCF files and intermediate files
-rm -f ALL.chr*.vcf.gz* chr_names.txt ploidy.txt
+rm -f 1kGP_high_coverage_Illumina.chr*.vcf.gz* ploidy.txt
 
 # Convert vcf.gz to bref
 wget https://faculty.washington.edu/browning/beagle/bref.27Jan18.7e1.jar
