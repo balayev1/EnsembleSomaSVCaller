@@ -29,7 +29,7 @@ done
 for CHR in {1..22} X; do
     echo "Processing Chr ${CHR}..."
     bcftools annotate --rename-chrs chr_names.txt \
-        ALL.chr${CHR}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz -Ou | \
+        	1kGP_high_coverage_Illumina.chr${CHR}.filtered.SNV_INDEL_SV_phased_panel.vcf.gz -Ou | \
     bcftools view -e 'INFO/AC<3' -Ou | \
     bcftools norm -m -any -Ou | \
     bcftools view -i 'INFO/VT="SNP" | INFO/VT="INDEL"' -Ou | \
