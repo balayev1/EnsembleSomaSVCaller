@@ -4,7 +4,7 @@
 # This script processes 1000 Genomes Phase 3 VCF files to create reference panels for Beagle imputation.
 
 # Download 1000 Genomes Phase 3 VCF files 
-wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/*
+wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/20220422_3202_phased_SNV_INDEL_SV/*
 
 # Load bcftools
 module load bcftools
