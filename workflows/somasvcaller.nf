@@ -7,7 +7,20 @@ nextflow.enable.dsl=2
 */
 
 // Check input path parameters to see if they exist
-def checkPathParamList = [ params.input, params.fasta, params.allele_res, params.loci_res, params.gc_file, params.rt_file, params.facets_snp_vcf ]
+def checkPathParamList = [ 
+    params.input, 
+    params.fasta, 
+    params.fasta_fai, 
+    params.ascat_alleles, 
+    params.ascat_loci, 
+    params.ascat_gc, 
+    params.ascat_rt, 
+    params.dbsnp, 
+    params.dbsnp_tbi, 
+    params.gcmapdir_frag,
+    params.hapmap_sites,
+    params.pon_dryclean
+]
 for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
 
 // Check mandatory parameters
@@ -78,6 +91,7 @@ build_dryclean         = params.build_dryclean         ?: Channel.empty()
 include { INPUT_PREP } from './subworkflows/input_prep.nf'
 include { ZERO_SHOT_CNV_CALL } from './subworkflows/zeroshot_cnv_calling.nf'
 include { BAM_HETPILEUPS } from './subworkflows/bam_hetpileups/main.nf'
+include { COVERAGE_JABBA } from './subworkflows/coverage_jabba.nf'
 
 /*
     MAIN WORKFLOW
@@ -141,7 +155,7 @@ workflow SOMASV_CALLER {
     BAM_HETPILEUPS (
         ch_samples, 
         filter_hets, 
-        max_depth,
+        max_depth_hets,
         hapmap_sites
     )
     ch_versions = ch_versions.mix(BAM_HETPILEUPS.out.versions)

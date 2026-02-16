@@ -14,8 +14,8 @@ process FACETS {
     tuple val(meta), path(input_normal), path(index_normal), path(input_tumor), path(index_tumor)
     path snp_vcf
     path snp_vcf_index
-    path targets_bed, optional: true
-    path annotation_bed, optional: true
+    path targets_bed
+    path annotation_bed
 
     output:
     tuple val(meta), path("*.csv.gz"),           emit: pileup
