@@ -16,47 +16,59 @@ if (params.input) { ch_input = file(params.input) } else { exit 1, 'Input sample
 /*
     CHANNEL SETUP
 */
-// Universal parameters
-refgen                  = Channel.fromPath([params.fasta,params.fasta_fai], checkIfExists: true).collect()
 
-// ASCAT parameters
-allele_res              = Channel.fromPath(params.allele_res, checkIfExists: true)
-loci_res                = Channel.fromPath(params.loci_res, checkIfExists: true)
-gc_file                 = Channel.fromPath(params.gc_file, checkIfExists: true)
-rt_file                 = Channel.fromPath(params.rt_file, checkIfExists: true)
-ascat_bed_file          = params.bed_file                       ? Channel.fromPath(params.bed_file, checkIfExists: true)
-                                                                : Channel.empty()
+// Initialize file channels based on params, defined in the params.genomes[params.genome] scope
+fasta               = params.fasta              ? Channel.fromPath(params.fasta).first()                : Channel.empty()
+fasta_fai           = params.fasta_fai          ? Channel.fromPath(params.fasta_fai).collect()          : Channel.empty()
+target_regs         = params.target_regs        ? Channel.fromPath(params.target_regs).collect()         : Channel.empty()
+dbsnp               = params.dbsnp              ? Channel.fromPath(params.dbsnp).collect()              : Channel.empty()
+dbsnp_tbi               = params.dbsnp_tbi              ? Channel.fromPath(params.dbsnp_tbi).collect()              : Channel.empty()
 
-// FACETS parameters
-facets_snp_vcf          = Channel.fromPath([params.facets_snp_vcf, params.facets_snp_vcf + '.tbi'], checkIfExists: true).collect()
-facets_targets_bed      = params.facets_targets_bed             ? Channel.fromPath(params.facets_targets_bed, checkIfExists: true) 
-                                                                : Channel.empty()
-facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPath(params.facets_annotation_bed, checkIfExists: true)
-                                                                : Channel.empty()
+// Ascat
+ascat_alleles     = params.ascat_alleles          ? Channel.fromPath(params.ascat_alleles).collect()          : Channel.empty()
+ascat_loci       = params.ascat_loci            ? Channel.fromPath(params.ascat_loci).collect()            : Channel.empty()
+ascat_gc         = params.ascat_gc              ? Channel.fromPath(params.ascat_gc).collect()              : Channel.empty()
+ascat_rt         = params.ascat_rt              ? Channel.fromPath(params.ascat_rt).collect()              : Channel.empty()
 
-// Hetpileups parameters
+// Facets
+facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPath(params.facets_annotation_bed).collect() : Channel.empty()
+
+// FragCounter
+gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdir_frag).collect()     : Channel.empty()   // This is the GC/Mappability directory for fragCounter. (Must contain gc* & map* .rds files)
+
+// HetPileups
 hapmap_sites       = params.hapmap_sites       ? Channel.fromPath(params.hapmap_sites).collect()      : Channel.empty()
-filter_hets         = params.filter_hets       ?: Channel.empty()
-max_depth           = params.max_depth         ?: Channel.empty()
 
-// fragCounter parameters
-gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdir_frag).collect() : Channel.empty()
+// Dryclean
+pon_dryclean      = params.pon_dryclean      ? Channel.fromPath(params.pon_dryclean).collect()     : Channel.empty()   // This is the path to the PON for Dryclean.
+blacklist_path_dryclean      = params.blacklist_path_dryclean      ? Channel.fromPath(params.blacklist_path_dryclean).collect()     : Channel.empty()   // This is the path to the blacklist for Dryclean (optional).
+germline_file_dryclean      = params.germline_file_dryclean      ? Channel.fromPath(params.germline_file_dryclean).collect()     : Channel.empty()   // This is the path to the germline mask for dryclean (optional).
+
+// Initialize value channels based on params, defined in the params.genomes[params.genome] scope
+//Ascat
+ascat_genome       = params.ascat_genome       ?: Channel.empty()
+
+//Facets
+facets_genome      = params.facets_genome      ?: Channel.empty()
+
+// Hetpileups
+filter_hets         = params.filter_hets       ?: Channel.empty()
+max_depth_hets           = params.max_depth_hets         ?: Channel.empty()
+
+// fragCounter
 windowsize_frag    = params.windowsize_frag    ?: Channel.empty()
 minmapq_frag       = params.minmapq_frag       ?: Channel.empty()
 midpoint_frag      = params.midpoint_frag      ?: Channel.empty()
 paired_frag        = params.paired_frag        ?: Channel.empty()
 exome_frag         = params.exome_frag         ?: Channel.empty()
 
-// dryclean parameters
-pon_dryclean           = params.pon_dryclean           ? Channel.fromPath(params.pon_dryclean).collect() : Channel.empty()
+// dryclean
 center_dryclean        = params.center_dryclean        ?: Channel.empty()
 cbs_dryclean           = params.cbs_dryclean           ?: Channel.empty()
 cnsignif_dryclean      = params.cnsignif_dryclean      ?: Channel.empty()
 wholeGenome_dryclean   = params.wholeGenome_dryclean   ?: Channel.empty()
 blacklist_dryclean     = params.blacklist_dryclean     ?: Channel.empty()
-blacklist_path_dryclean= params.blacklist_path_dryclean? Channel.fromPath(params.blacklist_path_dryclean).collect() : Channel.empty()
 germline_filter_dryclean= params.germline_filter_dryclean ?: Channel.empty()
-germline_file_dryclean = params.germline_file_dryclean ? Channel.fromPath(params.germline_file_dryclean).collect() : Channel.empty()
 field_dryclean         = params.field_dryclean         ?: Channel.empty()
 build_dryclean         = params.build_dryclean         ?: Channel.empty()
 
@@ -86,14 +98,14 @@ workflow SOMASV_CALLER {
     //  
     ZERO_SHOT_CNV_CALL (
         ch_samples, 
-        refgen, 
-        allele_res, 
-        loci_res, 
-        gc_file, 
-        rt_file, 
-        ascat_bed_file,
-        facets_snp_vcf,
-        facets_targets_bed,
+        fasta, 
+        ascat_alleles, 
+        ascat_loci, 
+        ascat_gc, 
+        ascat_rt, 
+        target_regs,
+        dbsnp,
+        dbsnp_tbi,
         facets_annotation_bed
     )
     ch_versions    = ch_versions.mix(ZERO_SHOT_CNV_CALL.out.versions)

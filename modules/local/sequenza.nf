@@ -4,7 +4,7 @@ nextflow.enable.dsl=2
 
 process SEQUENZAUTILS_GCWIGGLE {
     tag "$meta.id"
-    label 'process_low'
+    label 'process_medium'
 
     conda (params.enable_conda ? "" : null)
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?

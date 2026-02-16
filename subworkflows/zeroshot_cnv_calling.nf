@@ -18,14 +18,14 @@ include { CHECK_ACESEQ_DIR }      from '../modules/local/check_aceseq.nf' addPar
 workflow ZERO_SHOT_CNV_CALL {
     take
         ch_samples,    // channel: [val(meta), tumor,tumor_bai, control, control_bai]
-        refgen,         // channel: [path(fasta), path(fasta_fai)]
-        allele_resource,    // channel: [path(allele_res)]
-        loci_resource,      // channel: [path(loci_res)]
-        ascat_gc_file,       // channel: [path(gc_file)]
-        ascat_rt_file,       // channel: [path(rt_file)]
-        ascat_bed_file,       // channel: [path(bed)]
-        facets_snp, // channel: [path(facets_snp_vcf), path(facets_snp_vcf_index)]
-        facets_targets, // channel: [path(facets_targets_bed)]
+        fasta,         // channel: [path(fasta)]
+        ascat_alleles,    // channel: [path(allele_res)]
+        ascat_loci,      // channel: [path(ascat_loci)]
+        ascat_gc,       // channel: [path(ascat_gc)]
+        ascat_rt,       // channel: [path(ascat_rt)]
+        target_regs,       // channel: [path(target_regs)]
+        dbsnp, // channel: [path(dbsnp)]
+        dbsnp_tbi, // channel: [path(dbsnp_tbi)]
         facets_annotation // channel: [path(facets_annotation_bed)]
 
     main:
@@ -36,19 +36,19 @@ workflow ZERO_SHOT_CNV_CALL {
     //
     ASCAT (
         ch_samples,
-        allele_resource,
-        loci_resource,
-        ascat_bed_file,
-        refgen[0],
-        ascat_gc_file,
-        ascat_rt_file
+        ascat_alleles,
+        ascat_loci,
+        target_regs,
+        fasta,
+        ascat_gc,
+        ascat_rt
     )
     versions = versions.mix(ASCAT.out.versions)
 
     //
     // Run Sequenzautils to generate GC Wiggle Reference
     //
-    ch_gc_wiggle_input = Channel.of( [ [id:'reference_genome'], refgen[0] ] )
+    ch_gc_wiggle_input = Channel.of( [ [id:'reference_genome'], fasta ] )
     SEQUENZAUTILS_GCWIGGLE(ch_gc_wiggle_input)
     ch_wiggle_file = SEQUENZAUTILS_GCWIGGLE.out.wig.map { meta, wig -> wig }
     versions = versions.mix(SEQUENZAUTILS_GCWIGGLE.out.versions)
@@ -58,7 +58,7 @@ workflow ZERO_SHOT_CNV_CALL {
     //
     SEQUENZA_RUN ( 
         ch_samples, 
-        refgen[0], 
+        fasta, 
         ch_wiggle_file 
     )
     versions = versions.mix(SEQUENZA_RUN.out.versions)
@@ -68,9 +68,9 @@ workflow ZERO_SHOT_CNV_CALL {
     //
     FACETS (
         ch_samples,
-        facets_snp[0],
-        facets_snp[1],
-        facets_targets,
+        dbsnp,
+        dbsnp_tbi,
+        target_regs,
         facets_annotation
     )
     versions = versions.mix(FACETS.out.versions)
