@@ -6,20 +6,18 @@ nextflow.enable.dsl=2
 // Generate GC- and mappability-corrected denoised genomic coverage files for JAbBA
 //
 
-params.options = [:]
-
 // fragCounter
-include { BAM_FRAGCOUNTER as TUMOR_FRAGCOUNTER         } from './subworkflows/bam_fragCounter/main'
-include { BAM_FRAGCOUNTER as NORMAL_FRAGCOUNTER        } from './subworkflows/bam_fragCounter/main'
+include { BAM_FRAGCOUNTER as TUMOR_FRAGCOUNTER         } from '../subworkflows/bam_fragCounter/main.nf'
+include { BAM_FRAGCOUNTER as NORMAL_FRAGCOUNTER        } from '../subworkflows/bam_fragCounter/main.nf'
 
 // dryclean
-include { COV_DRYCLEAN as TUMOR_DRYCLEAN               } from './subworkflows/cov_dryclean/main'
-include { COV_DRYCLEAN as NORMAL_DRYCLEAN              } from './subworkflows/cov_dryclean/main'
+include { COV_DRYCLEAN as TUMOR_DRYCLEAN               } from '../subworkflows/cov_dryclean/main.nf'
+include { COV_DRYCLEAN as NORMAL_DRYCLEAN              } from '../subworkflows/cov_dryclean/main.nf'
 
 // Genomic coverage acquisition workflow for JAbBA
 workflow COVERAGE_JABBA {
-    take
-        ch_samples,    // channel: [ val(meta), [control],[control_index],[ tumor], [tumor_index]]
+    take:
+        ch_samples    // channel: [ val(meta), [control],[control_index],[ tumor], [tumor_index]]
         midpoint_frag  
         windowsize_frag
         gcmapdir_frag

@@ -7,12 +7,13 @@ process ASCAT {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "${workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container
+    container "${workflow.containerEngine == 'singularity'
         ? 'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/4c/4cf02c7911ee5e974ce7db978810770efbd8d872ff5ab3462d2a11bcf022fab5/data'
         : 'community.wave.seqera.io/library/ascat_cancerit-allelecount:c3e8749fa4af0e99'}"
 
     input:
     tuple val(meta), path(input_normal), path(index_normal), path(input_tumor), path(index_tumor)
+    val gender_val
     path allele_files
     path loci_files
     path bed_file
@@ -37,8 +38,8 @@ process ASCAT {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-
-    def gender        = args.gender        ? "${args.gender}"        : "NULL"
+    
+    def gender        = gender_val ?: "NULL"
     def genomeVersion = args.genomeVersion ? "${args.genomeVersion}" : "NULL"
     def purity        = args.purity        ? "${args.purity}"        : "NULL"
     def ploidy        = args.ploidy        ? "${args.ploidy}"        : "NULL"

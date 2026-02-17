@@ -2,7 +2,7 @@
 // BAM HETPILEUPS
 //
 
-include { HETPILEUPS } from '../../../modules/nf-core/hetpileups/main.nf'
+include { HETPILEUPS } from '../../modules/nf-core/hetpileups/main.nf'
 
 workflow BAM_HETPILEUPS {
     // defining inputs

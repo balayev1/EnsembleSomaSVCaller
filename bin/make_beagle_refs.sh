@@ -12,14 +12,7 @@ module load bcftools
 # Set path to hg38 reference genome
 ref_file="/projects/standard/aventeic/balay011/references/reference_genome/GRCh38.primary_assembly.genome.fa"
 
-# To add 'chr' prefix, make file with old and new chromosome names
-rm -f chr_names.txt
-for CHR in {1..22} X; do 
-    echo "${CHR} chr${CHR}" >> chr_names.txt
-done
-
-# Add 'chr' prefix -> 
-# remove variants with < 3 minor allele count -> 
+# Remove variants with < 3 minor allele count -> 
 # subset SNPs and INDELs -> 
 # left-align indels -> 
 # set ID to CHR_POS_REF_ALT -> 
@@ -59,12 +52,12 @@ mv 1000GP_chr23.vcf.gz 1000GP_chrX.vcf.gz
 # Delete original VCF files and intermediate files
 rm -f 1kGP_high_coverage_Illumina.chr*.vcf.gz* ploidy.txt
 
-# Convert vcf.gz to bref
-wget https://faculty.washington.edu/browning/beagle/bref.27Jan18.7e1.jar
-for CHR in {1..22} X; do
-    echo "Creating bref for Chr ${CHR}..."
-    java -jar bref.27Jan18.7e1.jar \
-        1000GP_chr${CHR}.vcf.gz > 1000GP_chr${CHR}.bref
-done
+# # Convert vcf.gz to bref
+# wget https://faculty.washington.edu/browning/beagle/bref.27Jan18.7e1.jar
+# for CHR in {1..22} X; do
+#     echo "Creating bref for Chr ${CHR}..."
+#     java -jar bref.27Jan18.7e1.jar \
+#         1000GP_chr${CHR}.vcf.gz > 1000GP_chr${CHR}.bref
+# done
 
 echo "Done."

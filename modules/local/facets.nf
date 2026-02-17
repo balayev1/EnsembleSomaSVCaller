@@ -7,7 +7,7 @@ process FACETS {
     label 'process_medium'
 
     conda (params.enable_conda ? "" : null)
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine == 'singularity' ?
         'docker://blcdsdockerregistry/cnv_facets:0.16.0':'blcdsdockerregistry/cnv_facets:0.16.0'}"
 
     input:

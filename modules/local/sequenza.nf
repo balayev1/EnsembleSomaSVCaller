@@ -7,7 +7,7 @@ process SEQUENZAUTILS_GCWIGGLE {
     label 'process_medium'
 
     conda (params.enable_conda ? "" : null)
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine == 'singularity' ?
         'docker://drtomc/sequenza-utils:latest':'drtomc/sequenza-utils:latest'}"
 
     input:
@@ -83,7 +83,7 @@ process SEQUENZA_RUN {
     if (args.ignore_normal)  options << "--ignore_normal"
     if (args.ratio_priority) options << "--ratio_priority"
     if (args.no_archive)     options << "--no_archive"
-    if (meta.gender =~ /(?i)XX/) options << "--x-heterozygous"
+    if (meta.gender =~ /(?i)female/) options << "--x-heterozygous"
 
     if (args.cellularity)    options << "--cellularity ${args.cellularity}"
     if (args.ploidy)         options << "--ploidy ${args.ploidy}"

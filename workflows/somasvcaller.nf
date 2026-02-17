@@ -88,10 +88,10 @@ build_dryclean         = params.build_dryclean         ?: Channel.empty()
 /*
     IMPORT SUBWORKFLOWS
 */
-include { INPUT_PREP } from './subworkflows/input_prep.nf'
-include { ZERO_SHOT_CNV_CALL } from './subworkflows/zeroshot_cnv_calling.nf'
-include { BAM_HETPILEUPS } from './subworkflows/bam_hetpileups/main.nf'
-include { COVERAGE_JABBA } from './subworkflows/coverage_jabba.nf'
+include { INPUT_PREP } from '../subworkflows/input_prep.nf'
+include { ZERO_SHOT_CNV_CALL } from '../subworkflows/zeroshot_cnv_calling.nf'
+include { BAM_HETPILEUPS } from '../subworkflows/bam_hetpileups/main.nf'
+include { COVERAGE_JABBA } from '../subworkflows/coverage_jabba.nf'
 
 /*
     MAIN WORKFLOW
@@ -110,7 +110,7 @@ workflow SOMASV_CALLER {
     //
     // SUBWORKFLOW: Run zero-shot CNV calling with ASCAT, SEQUENZA, and FACETS
     //  
-    ZERO_SHOT_CNV_CALL (
+    ZERO_SHOT_CNV_CALL(
         ch_samples, 
         fasta, 
         ascat_alleles, 
@@ -127,7 +127,7 @@ workflow SOMASV_CALLER {
     //
     // SUBWORKFLOW: Generate GC- and mappability-corrected denoised genomic coverage files for JAbBA
     //
-    COVERAGE_JABBA (
+    COVERAGE_JABBA(
         ch_samples, 
         midpoint_frag, 
         windowsize_frag, 
@@ -152,7 +152,7 @@ workflow SOMASV_CALLER {
     //
     // SUBWORKFLOW: Generate heterozygous pileups file for JabBa
     //
-    BAM_HETPILEUPS (
+    BAM_HETPILEUPS(
         ch_samples, 
         filter_hets, 
         max_depth_hets,
