@@ -17,6 +17,9 @@ export SOMASV_REPO="path/to/EnsembleSomaSVCaller" # <-- UPDATE THIS PATH
 mkdir -p "${ACESEQ_REPO}/logs"
 mkdir -p "${SOMASV_REPO}/logs"
 
+# # Set Singularity cache directory to a shared location
+# export SINGULARITY_CACHEDIR="/scratch.global/balay011/singularity_cache"
+
 # --- JOB 1: nf-aceseq ---
 cd "$ACESEQ_REPO" || exit
 ACESEQ_JOB=$(sbatch --parsable "${SOMASV_REPO}/slurm/nf_aceseq.sbatch")
