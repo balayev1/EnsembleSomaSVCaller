@@ -13,7 +13,6 @@ process ASCAT {
 
     input:
     tuple val(meta), path(input_normal), path(index_normal), path(input_tumor), path(index_tumor)
-    val gender_val
     path allele_files
     path loci_files
     path bed_file
@@ -38,8 +37,8 @@ process ASCAT {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    
-    def gender        = gender_val ?: "NULL"
+
+    def gender        = args.gender        ? "${args.gender}"        : "NULL"
     def genomeVersion = args.genomeVersion ? "${args.genomeVersion}" : "NULL"
     def purity        = args.purity        ? "${args.purity}"        : "NULL"
     def ploidy        = args.ploidy        ? "${args.ploidy}"        : "NULL"
@@ -64,7 +63,7 @@ process ASCAT {
         additional_allelecounter_arg = ", additional_allelecounter_flags = '-r \"${fasta}\"'"
     }
     else {
-	additional_allelecounter_arg = ""
+        additional_allelecounter_arg = ""
     }
 
     """
@@ -74,8 +73,13 @@ process ASCAT {
     options(bitmapType='cairo')
 
     if(dir.exists("${allele_files}")) {
+        # expected production use of a directory
         allele_path   = normalizePath("${allele_files}")
-        allele_prefix = paste0(allele_path, "/G1000_alleles_hg38_")
+        allele_prefix = paste0(allele_path, "/", "${allele_files}", "_chr")
+    } else if(file.exists("${allele_files}")) {
+        # expected testing use of a single file
+        allele_path   = basename(normalizePath("${allele_files}"))
+        allele_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", allele_path)
     } else {
         stop("The specified allele files do not exist.")
     }
@@ -87,7 +91,11 @@ process ASCAT {
     if(dir.exists("${loci_files}")) {
         # expected production use of a directory
         loci_path   = normalizePath("${loci_files}")
-        loci_prefix = paste0(loci_path, "/G1000_loci_hg38_")
+        loci_prefix = paste0(loci_path, "/", "${loci_files}", "_chr")
+    } else if(file.exists("${loci_files}")) {
+        # expected testing use of a single file
+        loci_path   = basename(normalizePath("${loci_files}"))
+        loci_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", loci_path)
     } else {
         stop("The specified loci files do not exist.")
     }

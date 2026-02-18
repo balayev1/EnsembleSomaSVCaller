@@ -28,6 +28,7 @@ params.ascat_genome     = WorkflowMain.getGenomeAttribute(params, 'ascat_genome'
 params.ascat_loci       = WorkflowMain.getGenomeAttribute(params, 'ascat_loci')
 params.ascat_gc         = WorkflowMain.getGenomeAttribute(params, 'ascat_gc')
 params.ascat_rt         = WorkflowMain.getGenomeAttribute(params, 'ascat_rt')
+params.sequenza_genome  = WorkflowMain.getGenomeAttribute(params, 'sequenza_genome')
 params.facets_genome    = WorkflowMain.getGenomeAttribute(params, 'facets_genome')
 params.gcmapdir_frag    = WorkflowMain.getGenomeAttribute(params, 'gcmapdir_frag')
 params.build_dryclean   = WorkflowMain.getGenomeAttribute(params, 'build_dryclean')
