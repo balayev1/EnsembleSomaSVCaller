@@ -33,18 +33,18 @@ if (params.input) { ch_input = file(params.input) } else { exit 1, 'Input sample
 // Initialize file channels based on params, defined in the params.genomes[params.genome] scope
 fasta               = params.fasta              ? Channel.fromPath(params.fasta).first()                : Channel.empty()
 fasta_fai           = params.fasta_fai          ? Channel.fromPath(params.fasta_fai).collect()          : Channel.empty()
-target_regs         = params.target_regs        ? Channel.fromPath(params.target_regs).collect()         : Channel.empty()
+target_regs         = params.target_regs        ? Channel.fromPath(params.target_regs).collect()         : Channel.value([])
 dbsnp               = params.dbsnp              ? Channel.fromPath(params.dbsnp).collect()              : Channel.empty()
-dbsnp_tbi           = params.dbsnp_tbi              ? Channel.fromPath(params.dbsnp_tbi).collect()              : Channel.empty()
+dbsnp_tbi           = params.dbsnp_tbi          ? Channel.fromPath(params.dbsnp_tbi).collect()              : Channel.empty()
 
 // Ascat
-ascat_alleles     = params.ascat_alleles          ? Channel.fromPath(params.ascat_alleles).collect()          : Channel.empty()
+ascat_alleles     = params.ascat_alleles        ? Channel.fromPath(params.ascat_alleles).collect()          : Channel.empty()
 ascat_loci       = params.ascat_loci            ? Channel.fromPath(params.ascat_loci).collect()            : Channel.empty()
 ascat_gc         = params.ascat_gc              ? Channel.fromPath(params.ascat_gc).collect()              : Channel.empty()
 ascat_rt         = params.ascat_rt              ? Channel.fromPath(params.ascat_rt).collect()              : Channel.empty()
 
 // Facets
-facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPath(params.facets_annotation_bed).collect() : Channel.empty()
+facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPath(params.facets_annotation_bed).collect() : Channel.value([])
 
 // FragCounter
 gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdir_frag).collect()     : Channel.empty()   // This is the GC/Mappability directory for fragCounter. (Must contain gc* & map* .rds files)
@@ -122,7 +122,7 @@ workflow SOMASV_CALLER {
     ch_samples = INPUT_PREP(ch_input)
 
     //println "The samples: "
-    ch_samples.view()
+    // ch_samples.view()
 
     //
     // SUBWORKFLOW: Run zero-shot CNV calling with ASCAT, SEQUENZA, and FACETS

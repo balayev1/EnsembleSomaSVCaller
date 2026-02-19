@@ -12,10 +12,21 @@ process FACETS {
 
     input:
     tuple val(meta), path(input_normal), path(index_normal), path(input_tumor), path(index_tumor)
-    path snp_vcf
-    path snp_vcf_index
-    path targets_bed
-    path annotation_bed
+    path(snp_vcf)                   // VCF file of SNPs where pileup is to be computed
+    path(snp_vcf_index)             // Index file for the SNP VCF
+    path(targets_bed)               // BED file of target regions to scan (optional)
+    path(annotation_bed)            // BED file of annotation regions with 4th column as feature name (optional)
+    val(mapq)                       // Minimum mapping quality for reads to be included in pileup: Default is 20
+    val(baq)                        // Minimum base quality for bases to be included in pileup: Default is 20
+    val(mindepth)                   // Minimum depth for a SNP in normal sample to be included in pileup: Default is 25
+    val(maxdepth)                   // Maximum depth for a SNP in normal sample to be included in pileup: Default is 4000
+    val(cval_pre)                   // Lower segmentation size limit: Default is 25 
+    val(cval_proc)                  // Upper segmentation size limit: Default is 400
+    val(nbhd_snp)                   // If an interval of size nbhd-snp contains more than one SNP, sample a random one: Default is "auto" if paired-end BAM provided, otherwise 250 
+    val(gbuild)                     // Reference genome build
+    val(count_orphans)              // If TRUE, do not discard anomalous read pairs: Default is FALSE
+    val(unmatched)                  // If TRUE, normal sample is unmatched, use tumor reads to call heterozygous SNPs: Default is FALSE
+    val(no_cov_plot)                // If TRUE, do not generate coverage plots: Default is FALSE
 
     output:
     tuple val(meta), path("*.csv.gz"),           emit: pileup
@@ -33,25 +44,22 @@ process FACETS {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     // Optional parameters with defaults
-    def mapq          = args.snp_mapq          ?: 20
-    def baq           = args.snp_baq           ?: 20
-    def nprocs        = args.snp_nprocs        ?: task.cpus
-    def depth_min     = args.depth_min         ?: 25
-    def depth_max     = args.depth_max         ?: 4000
-    def cval_pre      = args.cval_pre          ?: 25
-    def cval_proc     = args.cval_proc         ?: 150
-    def nbhd_snp      = args.nbhd_snp          ?: "auto"
-    def gbuild        = args.gbuild            ?: "hg38"
-    def rnd_seed      = args.rnd_seed          ?: "${prefix}"
+    def mapq_args           = mapq                          ? "-mq ${mapq}" : ""
+    def baq_args            = baq                           ? "-bq ${baq}"  : ""
+    def depth_args          = (mindepth && maxdepth)        ? "-d ${mindepth} ${maxdepth}" : ""
+    def cval_args           = (cval_pre && cval_proc)       ? "-cv ${cval_pre} ${cval_proc}" : ""
+    def nbhd_snp_args       = nbhd_snp                      ? "-snp ${nbhd_snp}" : ""
+    def gbuild_args         = gbuild                        ? "-g ${gbuild}" : ""
+    def rnd_seed_args       = args.rnd_seed                 ? "-s ${prefix}" : ""
 
     // Flags
-    def count_orphans = args.snp_count_orphans ? "-A" : ""
-    def unmatched     = args.unmatched         ? "-u" : ""
-    def no_cov_plot   = args.no_cov_plot       ? "-np" : ""
+    def count_orphans_args  = count_orphans                 ? "-A" : ""
+    def unmatched_args      = unmatched                     ? "-u" : ""
+    def no_cov_plot_args    = no_cov_plot                   ? "-np" : ""
     
     // Optional file inputs
-    def targets_arg    = targets_bed    ? "-T ${targets_bed}"    : ""
-    def annotation_arg = annotation_bed ? "-a ${annotation_bed}" : ""
+    def targets_args        = targets_bed                   ? "-T ${targets_bed}"    : ""
+    def annotation_args     = annotation_bed                ? "-a ${annotation_bed}" : ""
 
     """
     cnv_facets.R \\
@@ -59,19 +67,19 @@ process FACETS {
         -t ${input_tumor} \\
         -vcf ${snp_vcf} \\
         -o ${prefix} \\
-        -mq ${mapq} \\
-        -bq ${baq} \\
-        -N ${nprocs} \\
-        -d ${depth_min} ${depth_max} \\
-        -cv ${cval_pre} ${cval_proc} \\
-        -snp ${nbhd_snp} \\
-        -g ${gbuild} \\
-        -s ${rnd_seed} \\
-        ${count_orphans} \\
-        ${unmatched} \\
-        ${no_cov_plot} \\
-        ${targets_arg} \\
-        ${annotation_arg}
+        ${mapq_args} \\
+        ${baq_args} \\
+        -N ${task.cpus} \\
+        ${depth_args} \\
+        ${cval_args} \\
+        ${nbhd_snp_args} \\
+        ${gbuild_args} \\
+        ${rnd_seed_args} \\
+        ${count_orphans_args} \\
+        ${unmatched_args} \\
+        ${no_cov_plot_args} \\
+        ${targets_args} \\
+        ${annotation_args}
 
     # Version export
     cat <<-END_VERSIONS > versions.yml

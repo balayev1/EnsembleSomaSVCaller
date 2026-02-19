@@ -52,7 +52,7 @@ workflow ZERO_SHOT_CNV_CALL {
             ch_gc_wiggle_input,
             params.windowsize_sequtils
         )
-        ch_wiggle_file = SEQUENZAUTILS_GCWIGGLE.out.wig.map { meta, wig -> wig }
+        ch_wiggle_file = SEQUENZAUTILS_GCWIGGLE.out.wig.map { meta, wig -> wig }.first()
         versions = versions.mix(SEQUENZAUTILS_GCWIGGLE.out.versions)
 
         //
@@ -70,7 +70,6 @@ workflow ZERO_SHOT_CNV_CALL {
             params.rd_thr_sequtils,
             params.seqz_bin_size_sequtils
         )
-        versions = versions.mix(SEQUENZA_PREP.out.versions)
 
         // 
         // Run SEQUENZA
@@ -93,7 +92,18 @@ workflow ZERO_SHOT_CNV_CALL {
             dbsnp,
             dbsnp_tbi,
             target_regs,
-            facets_annotation
+            facets_annotation,
+            params.facets_mapq,
+            params.facets_baq,
+            params.facets_mindepth,
+            params.facets_maxdepth,
+            params.facets_cval_pre,
+            params.facets_cval_proc,
+            params.facets_nbhd_snp,
+            params.facets_genome,
+            params.facets_count_orphans,
+            params.facets_unmatched,
+            params.facets_no_cov_plot
         )
         versions = versions.mix(FACETS.out.versions)
 
@@ -101,7 +111,7 @@ workflow ZERO_SHOT_CNV_CALL {
         // Synchronization Point
         //
         ch_all_finished = ASCAT.out.segments
-            .mix(FACETS.out.vcf, SEQUENZA_RUN.out.results)
+            .mix(FACETS.out.vcf, SEQUENZA_RUN.out.segments)
             .collect()
 
         //
