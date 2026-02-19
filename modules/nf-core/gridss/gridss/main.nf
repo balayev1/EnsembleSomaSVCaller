@@ -33,7 +33,7 @@ process GRIDSS_GRIDSS {
     def prefix = task.ext.prefix ?: "${meta.id}.gridss"
     def VERSION = '2.13.2' // WARN: Version information not provided by tool on CLI. Please update this string when bumping container versions.
     def assembly_bam = "--assembly ${meta.id}.assembly.bam"
-    def bwa = bwa_index ? "cp -s ${bwa_index}/* . || true" : ""
+    def bwa = bwa_index ? "cp -s ${bwa_index} . || true" : ""
     def blacklist = blacklist_gridss ? "--blacklist ${blacklist_gridss}" : ""
     def jvmheap_mem = (task.memory.toGiga() * 0.9).toInteger() // 
     def otherjvmheap_mem = (task.memory.toGiga() * 0.75).toInteger() // 

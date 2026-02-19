@@ -55,9 +55,10 @@ gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdi
 delly_blacklist    = params.delly_blacklist    ? Channel.fromPath(params.delly_blacklist).collect()     : Channel.value([])
 
 // GRIDSS
-bwa_index          = params.bwa_index          ? Channel.fromPath(params.bwa_index).collect()          : Channel.empty()
-gridss_blacklist   = params.gridss_blacklist   ? Channel.fromPath(params.gridss_blacklist).collect()   : Channel.empty()
-gridss_pon         = params.gridss_pon         ? Channel.fromPath(params.gridss_pon).collect()         : Channel.empty()
+// Grab only the specific BWA index extensions
+bwa_index           = params.bwa_index          ? Channel.fromPath("${params.bwa_index}/*.{amb,ann,bwt,pac,sa,alt}").collect() : Channel.empty()
+gridss_blacklist    = params.gridss_blacklist   ? Channel.fromPath(params.gridss_blacklist).collect()   : Channel.empty()
+gridss_pon          = params.gridss_pon         ? Channel.fromPath(params.gridss_pon).collect()         : Channel.empty()
 
 // HetPileups
 hapmap_sites       = params.hapmap_sites       ? Channel.fromPath(params.hapmap_sites).collect()      : Channel.empty()
