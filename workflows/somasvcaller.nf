@@ -49,6 +49,9 @@ facets_annotation_bed   = params.facets_annotation_bed          ? Channel.fromPa
 // FragCounter
 gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdir_frag).collect()     : Channel.empty()   // This is the GC/Mappability directory for fragCounter. (Must contain gc* & map* .rds files)
 
+// Delly
+delly_blacklist    = params.delly_blacklist    ? Channel.fromPath(params.delly_blacklist).collect()     : Channel.value([])
+
 // HetPileups
 hapmap_sites       = params.hapmap_sites       ? Channel.fromPath(params.hapmap_sites).collect()      : Channel.empty()
 
@@ -80,6 +83,21 @@ sequenza_ploidy_range   = params.sequenza_ploidy_range   ?: Channel.empty()
 
 //Facets
 facets_genome      = params.facets_genome      ?: Channel.empty()
+
+// Delly
+delly_mode                  = params.delly_mode                 ?: Channel.empty()
+delly_min_svqual            = params.delly_min_svqual           ?: Channel.empty()
+delly_altaf                 = params.delly_altaf               ?: Channel.empty()
+delly_min_svsize            = params.delly_min_svsize           ?: Channel.empty()
+delly_max_svsize            = params.delly_max_svsize           ?: Channel.empty()
+delly_ratio_geno            = params.delly_ratio_geno           ?: Channel.empty()
+delly_pass                  = params.delly_pass                 ?: Channel.empty()
+delly_tags                  = params.delly_tags                 ?: Channel.empty()
+delly_cov                   = params.delly_cov                  ?: Channel.empty()
+delly_ctrl_contamination    = params.delly_ctrl_contamination   ?: Channel.empty()
+delly_geno_qual             = params.delly_geno_qual            ?: Channel.empty()
+delly_rddel                 = params.delly_rddel                ?: Channel.empty()
+delly_rddup                 = params.delly_rddup                ?: Channel.empty()
 
 // Hetpileups
 filter_hets         = params.filter_hets       ?: Channel.empty()
@@ -177,4 +195,28 @@ workflow SOMASV_CALLER {
     )
     ch_versions = ch_versions.mix(BAM_HETPILEUPS.out.versions)
     sites_from_het_pileups_wgs = Channel.empty().mix(BAM_HETPILEUPS.out.het_pileups_wgs)
+
+    //
+    // SUBWORKFLOW: Estimate genomic breakpoints for JabBa
+    //
+    BREAKPOINT_ESTIMATOR (
+        ch_samples,
+        fasta,
+        fasta_fai,
+        delly_blacklist,
+        delly_mode,
+        delly_min_svqual,
+        delly_altaf,
+        delly_min_svsize,
+        delly_max_svsize,
+        delly_ratio_geno,
+        delly_pass,
+        delly_tags,
+        delly_cov,
+        delly_ctrl_contamination,
+        delly_geno_qual,
+        delly_rddel,
+        delly_rddup
+    )
+    ch_versions = ch_versions.mix(BREAKPOINT_ESTIMATOR.out.versions)
 }
