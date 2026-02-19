@@ -19,7 +19,9 @@ def checkPathParamList = [
     params.dbsnp_tbi, 
     params.gcmapdir_frag,
     params.hapmap_sites,
-    params.pon_dryclean
+    params.pon_dryclean,
+    params.bwa_index,
+    params.gridss_pon
 ]
 for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
 
@@ -51,6 +53,11 @@ gcmapdir_frag      = params.gcmapdir_frag      ? Channel.fromPath(params.gcmapdi
 
 // Delly
 delly_blacklist    = params.delly_blacklist    ? Channel.fromPath(params.delly_blacklist).collect()     : Channel.value([])
+
+// GRIDSS
+bwa_index          = params.bwa_index          ? Channel.fromPath(params.bwa_index).collect()          : Channel.empty()
+gridss_blacklist   = params.gridss_blacklist   ? Channel.fromPath(params.gridss_blacklist).collect()   : Channel.empty()
+gridss_pon         = params.gridss_pon         ? Channel.fromPath(params.gridss_pon).collect()         : Channel.empty()
 
 // HetPileups
 hapmap_sites       = params.hapmap_sites       ? Channel.fromPath(params.hapmap_sites).collect()      : Channel.empty()
@@ -127,6 +134,7 @@ include { INPUT_PREP } from '../subworkflows/input_prep.nf'
 include { ZERO_SHOT_CNV_CALL } from '../subworkflows/zeroshot_cnv_calling.nf'
 include { BAM_HETPILEUPS } from '../subworkflows/bam_hetpileups/main.nf'
 include { COVERAGE_JABBA } from '../subworkflows/coverage_jabba.nf'
+include { BREAKPOINT_ESTIMATOR } from '../subworkflows/breakpoint_estimation.nf'
 
 /*
     MAIN WORKFLOW
@@ -203,6 +211,9 @@ workflow SOMASV_CALLER {
         ch_samples,
         fasta,
         fasta_fai,
+        bwa_index,
+        gridss_blacklist,
+        gridss_pon,
         delly_blacklist,
         delly_mode,
         delly_min_svqual,

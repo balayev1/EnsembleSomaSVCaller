@@ -10,13 +10,20 @@ nextflow.enable.dsl=2
 include { BAM_DELLY } from '../subworkflows/bam_delly/main.nf'
 include { BCFTOOLS_VIEW } from '../../modules/local/bcftools/view/main.nf'
 
+// GRIDSS
+include { GRIDSS_SV_CALLING } from '../subworkflows/bam_gridss/main.nf'
+include { GRIDSS_SOMATIC_FILTER_STEP } from '../subworkflows/bam_gridss/main.nf'
+
 // Genomic breakpoint estimation workflow for JAbBA
 workflow BREAKPOINT_ESTIMATOR {
     take:
     ch_samples       // channel: [ val(meta), control, control_index, tumor, tumor_index ]
-    fasta            // channel: [ val(meta2), path(fasta) ]
-    fai              // channel: [ val(meta3), path(fai) ]
-    exclude_bed
+    fasta            
+    fai
+    bwa_index
+    gridss_blacklist
+    gridss_pon
+    delly_blacklist
     delly_mode
     delly_min_svqual
     delly_altaf
@@ -43,7 +50,7 @@ workflow BREAKPOINT_ESTIMATOR {
         .map { meta, control, control_index, tumor, tumor_index ->
             [ meta, [control, tumor], [control_index, tumor_index] ]
         }
-        .combine(exclude_bed)
+        .combine(delly_blacklist)
 
     //
     // Run DELLY
@@ -83,8 +90,33 @@ workflow BREAKPOINT_ESTIMATOR {
     delly_vcf = BCFTOOLS_VIEW.out.vcf
     versions  = versions.mix(BCFTOOLS_VIEW.out.versions_bcftools)
 
+    //
+    // Run GRIDSS SV calling
+    //
+    GRIDSS_SV_CALLING(
+        ch_samples,
+        bwa_index,
+        fasta,
+        fai,
+        gridss_blacklist
+    )
+    versions = versions.mix(GRIDSS_SV_CALLING.out.versions)
+
+    //
+    // Run GRIDSS Somatic Filter
+    //
+    GRIDSS_SOMATIC_FILTER_STEP(
+        GRIDSS_SV_CALLING.out.vcf,
+        gridss_pon
+    )
+    gridss_vcf_hc   = GRIDSS_SOMATIC_FILTER_STEP.out.somatic_high_confidence
+    gridss_vcf_all  = GRIDSS_SOMATIC_FILTER_STEP.out.somatic_all_vcf
+    versions        = versions.mix(GRIDSS_SOMATIC_FILTER_STEP.out.versions)
+
     emit:
     delly_filter_bcf
     delly_vcf
-    versions = versions
+    gridss_vcf_hc
+    gridss_vcf_all
+    versions
 }
