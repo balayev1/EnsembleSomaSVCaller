@@ -37,7 +37,7 @@ process SEQUENZAUTILS_GCWIGGLE {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sequenzautils: \$(echo \$(sequenza-utils 2>&1) | sed 's/^.*is version //; s/ .*\$//')
+        sequenzautils: \$(sequenza-utils --version 2>&1 | sed 's/sequenza-utils //')
     END_VERSIONS
     """
 
@@ -49,7 +49,7 @@ process SEQUENZAUTILS_GCWIGGLE {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sequenzautils: \$(echo \$(sequenza-utils 2>&1) | sed 's/^.*is version //; s/ .*\$//')
+        sequenzautils: \$(sequenza-utils --version 2>&1 | sed 's/sequenza-utils //')
     END_VERSIONS
     """
 }
@@ -64,7 +64,7 @@ process SEQUENZA_PREP {
         'quay.io/biocontainers/r-sequenza:3.0.0--r42h3342da4_5' }"
 
     input:
-    tuple val(meta), path(normal_bam), path(normal_bai), path(tumor_bam), path(tumor_bai)
+    tuple val(meta), path(normal_bam), path(normal_bai), path(tumor_bam), path(tumor_bai), val(chr)
     path(fasta)             // Path to reference genome FASTA
     path(gc_wig)            // Path to GC-content wiggle file
     val(hom)                // Threshold to select homozygous positions: Default is 0.9
@@ -73,17 +73,17 @@ process SEQUENZA_PREP {
     val(qlimit)             // Minimum base quality score: Default is 20
     val(qformat)            // Quality score format: Default is sanger (Phred+33), can also be illumina (Phred+64)
     val(rd_thr)             // Threshold to filter positions by the sum of read depth of the two samples: Default is 20
-    val(seqz_bin_size)           // Bin size for binning the seqz file: Default is 50
+    val(seqz_bin_size)      // Bin size for binning the seqz file: Default is 50
 
     output:
-    tuple val(meta), path("${meta.id}.binned.seqz.gz"), emit: seqz_file
+    tuple val(meta), path("*.binned.seqz.gz"), emit: seqz_file
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
     def args        = task.ext.args ?: ''
-    def prefix      = task.ext.prefix ?: "${meta.id}"
+    def prefix      = task.ext.prefix ?: "${meta.id}_${chr}"
 
     def fasta_arg   = fasta   ? "--fasta ${fasta}" : ""
     def gc_arg      = gc_wig  ? "-gc ${gc_wig}" : ""
@@ -101,20 +101,82 @@ process SEQUENZA_PREP {
         -t ${tumor_bam} \\
         ${fasta_arg} \\
         ${gc_arg} \\
-        --output ${prefix}.seqz.gz \\
         ${hom_arg} \\
         ${het_arg} \\
         ${het_f_arg} \\
         ${qlimit_arg} \\
         ${qformat_arg} \\
-        ${rd_thr_arg}
-
+        ${rd_thr_arg} \\
+        -C ${chr} | \\
     sequenza-utils seqz_binning \\
-        --seqz ${prefix}.seqz.gz \\
         ${win_arg} \\
-        -o ${prefix}.binned.seqz.gz
+        -s - | gzip > ${prefix}.binned.seqz.gz
 
-    rm ${prefix}.seqz.gz
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        sequenzautils: \$(sequenza-utils --version 2>&1 | sed 's/sequenza-utils //')
+    END_VERSIONS
+    """
+
+    stub:
+    def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}_${chr}"
+    """
+    echo | gzip > ${prefix}.binned.seqz.gz
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        sequenzautils: \$(sequenza-utils --version 2>&1 | sed 's/sequenza-utils //')
+    END_VERSIONS
+    """
+}
+
+process SEQUENZA_MERGE {
+    tag "$meta.id"
+    label 'process_low'
+
+    conda (params.enable_conda ? "bioconda::sequenza-utils=3.0.0 bioconda::htslib=1.16" : null)
+    container "${ workflow.containerEngine == 'singularity' ?
+        'https://depot.galaxyproject.org/singularity/sequenza-utils:3.0.0--py39he88f293_8':
+        'quay.io/biocontainers/sequenza-utils:3.0.0--py39he88f293_8' }"
+
+    input:
+    tuple val(meta), path(seqz_files)
+
+    output:
+    tuple val(meta), path("*.merged.seqz.gz"),     emit: merged_seqz
+    tuple val(meta), path("*.merged.seqz.gz.tbi"), emit: merged_seqz_tbi
+    path "versions.yml"                          , emit: versions
+
+    script:
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    """
+    zcat ${seqz_files[0]} | head -n 1 > header.txt
+
+    printf '%s\\n' ${seqz_files} | sort -V | xargs zgrep -h -v "^chromosome" > body.txt
+
+    cat header.txt body.txt | bgzip -c > ${prefix}.merged.seqz.gz
+
+    tabix -s 1 -b 2 -e 2 -S 1 ${prefix}.merged.seqz.gz
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        tabix: \$(echo \$(tabix -h 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
+        bgzip: \$(echo \$(bgzip -h 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
+    END_VERSIONS
+    """
+
+    stub:
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    """
+    echo "" | gzip > ${prefix}.merged.seqz.gz
+    touch ${prefix}.merged.seqz.gz.tbi
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        tabix: stub
+        bgzip: stub
+    END_VERSIONS
     """
 }
 

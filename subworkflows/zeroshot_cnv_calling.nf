@@ -7,11 +7,12 @@ nextflow.enable.dsl=2
 //
 
 include { ASCAT }                   from '../modules/nf-core/ascat/main.nf'
-include { FACETS }                  from '../modules/local/facets.nf'
-include { SEQUENZAUTILS_GCWIGGLE }  from '../modules/local/sequenza.nf'
-include { SEQUENZA_PREP }           from '../modules/local/sequenza.nf'
-include { SEQUENZA_RUN }            from '../modules/local/sequenza.nf'
-include { CHECK_ACESEQ_DIR }        from '../modules/local/check_aceseq.nf'
+include { FACETS }                  from '../modules/local/facets/main.nf'
+include { SEQUENZAUTILS_GCWIGGLE }  from '../modules/local/sequenza/main.nf'
+include { SEQUENZA_PREP }           from '../modules/local/sequenza/main.nf'
+include { SEQUENZA_MERGE }          from '../modules/local/sequenza/main.nf'
+include { SEQUENZA_RUN }            from '../modules/local/sequenza/main.nf'
+include { CHECK_ACESEQ_DIR }        from '../modules/local/check_aceseq/main.nf'
 
 // Zero-shot CNV Calling Workflow
 workflow ZERO_SHOT_CNV_CALL {
@@ -58,8 +59,13 @@ workflow ZERO_SHOT_CNV_CALL {
         //
         // Run Sequenzautils to generate binned seqz files
         //
+        ch_chromosomes = fai
+            .splitCsv(sep: '\t')
+            .map { row -> row[0] }
+            .filter { it =~ /^(chr)?([0-9]+|[XY])$/ } // Filters for main contigs only
+        ch_sequenza_prep_input = ch_samples.combine(ch_chromosomes)
         SEQUENZA_PREP(
-            ch_samples,
+            ch_sequenza_prep_input,
             fasta,
             ch_wiggle_file,
             params.hom_sequtils,
@@ -71,11 +77,15 @@ workflow ZERO_SHOT_CNV_CALL {
             params.seqz_bin_size_sequtils
         )
 
+        ch_to_merge = SEQUENZA_PREP.out.seqz_file.groupTuple(by: 0)
+        SEQUENZA_MERGE(ch_to_merge)
+        versions = versions.mix(SEQUENZA_MERGE.out.versions)
+        
         // 
         // Run SEQUENZA
         //
         SEQUENZA_RUN( 
-            SEQUENZA_PREP.out.seqz_file,
+            SEQUENZA_MERGE.out.merged_seqz,
             params.sequenza_genome,
             params.sequenza_rd_thr_tumor,
             params.sequenza_rd_thr_normal,
