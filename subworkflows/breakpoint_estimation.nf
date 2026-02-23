@@ -10,17 +10,32 @@ nextflow.enable.dsl=2
 include { BAM_DELLY } from '../subworkflows/bam_delly/main.nf'
 include { BCFTOOLS_VIEW } from '../../modules/local/bcftools/view/main.nf'
 
-// GRIDSS
+// Gridss
 include { GRIDSS_SV_CALLING } from '../subworkflows/bam_gridss/main.nf'
 include { GRIDSS_SOMATIC_FILTER_STEP } from '../subworkflows/bam_gridss/main.nf'
+
+// Svaba
+include { SVABA } from '../../modules/local/svaba/main.nf'
+
+// Brass
+include { BAM_STATS }     from '../../modules/local/bam_stats/main.nf'
+include { BRASS }         from '../../modules/local/brass/main.nf'
+include { TRANSFORM_ASCAT_STATS } from '../../modules/local/transform_ascat_stats/main.nf'
 
 // Genomic breakpoint estimation workflow for JAbBA
 workflow BREAKPOINT_ESTIMATOR {
     take:
-    ch_samples       // channel: [ val(meta), control, control_index, tumor, tumor_index ]
+    samples       // channel: [ val(meta), control, control_index, tumor, tumor_index ]
+    ascat_purityploidy
     fasta            
     fai
+    dbsnp
+    dbsnp_tbi
     bwa_index
+    indel_mask
+    germ_sv_db
+    simple_seq_db
+    svaba_error_rate
     gridss_blacklist
     gridss_pon
     delly_blacklist
@@ -37,16 +52,35 @@ workflow BREAKPOINT_ESTIMATOR {
     delly_geno_qual
     delly_rddel
     delly_rddup
+    brass_genome_cache
+    brass_depth
+    brass_viral
+    brass_microbes
+    brass_microbe_prefix
+    brass_gcbins
+    brass_cytoband
+    brass_centtel
+    brass_np
+    brass_np_tbi
+    brass_species
+    brass_protocol
+    brass_assembly
+    brass_min_reads
+    brass_mincn
 
     main:
     versions = Channel.empty()
 
+    //
     // Prepare reference inputs for DELLY
+    //
     ch_fasta = fasta.map { it -> [ [id:'fasta'], it ] }
     ch_fai   = fai.map   { it -> [ [id:'fasta_fai'], it ] }
 
-    // Transform ch_samples into DELLY input format
-    delly_input = ch_samples
+    //
+    // Transform samples into DELLY input format
+    //
+    delly_input = samples
         .map { meta, control, control_index, tumor, tumor_index ->
             [ meta, [control, tumor], [control_index, tumor_index] ]
         }
@@ -94,7 +128,7 @@ workflow BREAKPOINT_ESTIMATOR {
     // Run GRIDSS SV calling
     //
     GRIDSS_SV_CALLING(
-        ch_samples,
+        samples,
         bwa_index,
         fasta,
         fai,
@@ -113,10 +147,93 @@ workflow BREAKPOINT_ESTIMATOR {
     gridss_vcf_all  = GRIDSS_SOMATIC_FILTER_STEP.out.somatic_all_vcf
     versions        = versions.mix(GRIDSS_SOMATIC_FILTER_STEP.out.versions)
 
+    //
+    // Run SVABA
+    //
+    SVABA(
+        samples,
+        fasta,
+        fai,
+        bwa_index,
+        dbsnp,
+        dbsnp_tbi,
+        indel_mask,
+        germ_sv_db,
+        simple_seq_db,
+        svaba_error_rate
+    )
+    svaba_vcf_som_sv            = SVABA.out.som_sv              // high-confidence somatic sv
+    svaba_vcf_unfiltered_som_sv = SVABA.out.unfiltered_som_sv   // unfiltered somatic sv
+    versions                    = versions.mix(SVABA.out.versions)
+
+    //
+    // Transform ASCAT stats for BRASS
+    //
+    TRANSFORM_ASCAT_STATS(ascat_purityploidy)
+    versions = versions.mix(TRANSFORM_ASCAT_STATS.out.versions)
+
+    //
+    // Run bam stats to make .bas file with BAM summary statistics
+    //
+    normal_bams         = samples.map { meta, control, control_index, tumor, tumor_index -> 
+        [meta, control, control_index] 
+    }
+
+    tumor_bams          = samples.map { meta, control, control_index, tumor, tumor_index -> 
+        [meta, tumor, tumor_index] 
+    }
+
+    normal_bamstats     = BAM_STATS(normal_bams, fai)
+    versions            = versions.mix(normal_bamstats.out.versions)
+
+    tumor_bamstats      = BAM_STATS(tumor_bams, fai)
+    versions            = versions.mix(tumor_bamstats.out.versions)
+
+    brass_input = samples
+        .join(tumor_bamstats.out.bas)
+        .join(normal_bamstats.out.bas)
+        .join(TRANSFORM_ASCAT_STATS.out.brass_stats)
+        .map { meta, control, control_index, tumor, tumor_index, 
+               t_bam, t_bai, t_bas, 
+               n_bam, n_bai, n_bas, 
+               ascat_sum ->
+               [ meta, control, control_index, tumor, tumor_index, t_bas, n_bas, ascat_sum ]
+        }
+
+    //
+    // Run BRASS
+    //
+    BRASS(
+        brass_input,
+        fasta,
+        fai,
+        brass_genome_cache,
+        brass_depth,
+        brass_viral,
+        brass_microbes,
+        brass_gcbins,
+        brass_cytoband,
+        brass_centtel,
+        brass_np,
+        brass_np_tbi,
+        brass_species,
+        brass_protocol,
+        brass_assembly,
+        brass_min_reads,
+        brass_mincn
+    )
+    brass_bedpe = BRASS.out.bedpe
+    brass_vcf   = BRASS.out.vcf
+    versions    = versions.mix(BRASS.out.versions)
+
     emit:
     delly_filter_bcf
     delly_vcf
     gridss_vcf_hc
     gridss_vcf_all
+    svaba_vcf_som_sv
+    svaba_vcf_unfiltered_som_sv
+    brass_bedpe
+    brass_vcf
     versions
 }

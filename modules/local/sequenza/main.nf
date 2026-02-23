@@ -9,7 +9,7 @@ process SEQUENZAUTILS_GCWIGGLE {
     conda (params.enable_conda ? "" : null)
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/sequenza-utils:3.0.0--py39he88f293_8':
-        'quay.io/biocontainers/r-sequenza:3.0.0--r42h3342da4_5' }"
+        'quay.io/biocontainers/sequenza-utils:3.0.0--py39he88f293_8' }"
 
     input:
     tuple val(meta), path(fasta)        // Mandatory: Format should be [meta, fasta]
@@ -26,14 +26,14 @@ process SEQUENZAUTILS_GCWIGGLE {
     def args = task.ext.args ?: [:]
     def prefix = task.ext.prefix ?: "${meta.id}"
 
-    def windowsize  = windowsize ? "-w ${windowsize}" : ""
+    def window_arg  = windowsize ? "-w ${windowsize}" : ""
 
     """
     sequenza-utils \\
         gc_wiggle \\
         --fasta ${fasta} \\
         -o ${prefix}.wig.gz \\
-        $windowsize
+        $window_arg
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -61,7 +61,7 @@ process SEQUENZA_PREP {
     conda (params.enable_conda ? "" : null)
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/sequenza-utils:3.0.0--py39he88f293_8':
-        'quay.io/biocontainers/r-sequenza:3.0.0--r42h3342da4_5' }"
+        'quay.io/biocontainers/sequenza-utils:3.0.0--py39he88f293_8' }"
 
     input:
     tuple val(meta), path(normal_bam), path(normal_bai), path(tumor_bam), path(tumor_bai), val(chr)

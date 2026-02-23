@@ -19,6 +19,7 @@ workflow ZERO_SHOT_CNV_CALL {
     take:
         ch_samples    // channel: [val(meta), [control], [control_index],[ tumor], [tumor_index]]
         fasta         // channel: [path(fasta)]
+        fai             // channel: [path(fai)]
         ascat_alleles    // channel: [path(allele_res)]
         ascat_loci      // channel: [path(ascat_loci)]
         ascat_gc       // channel: [path(ascat_gc)]
@@ -43,7 +44,8 @@ workflow ZERO_SHOT_CNV_CALL {
             ascat_gc,
             ascat_rt
         )
-        versions = versions.mix(ASCAT.out.versions)
+        ascat_purityploidy  = ASCAT.out.purityploidy
+        versions            = versions.mix(ASCAT.out.versions)
 
         //
         // Run Sequenzautils to generate GC Wiggle Reference
@@ -130,5 +132,6 @@ workflow ZERO_SHOT_CNV_CALL {
         CHECK_ACESEQ_DIR(ch_all_finished)
 
     emit:
+        ascat_purityploidy
         versions
 }
