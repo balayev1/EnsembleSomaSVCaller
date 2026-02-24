@@ -4,7 +4,7 @@ process CREATE_DELLY_SAMPLES_TSV {
     label 'process_low'
 
     input:
-    tuple val(meta)
+    val(meta)
 
     output:
     tuple val(meta), path("${meta.id}_delly_samples.tsv"), emit: tsv

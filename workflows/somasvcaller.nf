@@ -25,7 +25,6 @@ def checkPathParamList = [
     params.brass_genome_cache,
     params.brass_depth,
     params.brass_viral,
-    params.brass_microbe,
     params.brass_gcbins,
     params.brass_cytoband,
     params.brass_centtel,

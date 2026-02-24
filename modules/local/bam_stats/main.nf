@@ -10,7 +10,7 @@ process BAM_STATS {
     path(fasta_fai)     // Path to reference genome index FAI
 
     output:
-    tuple val(meta), path(bam), path(bai), path("${bam}.bas"), emit: bas
+    tuple val(meta), path("${bam}.bas"), emit: bas
     path "versions.yml", emit: versions
 
     script:

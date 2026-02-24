@@ -5,8 +5,8 @@
 //
 //
 
-include { GRIDSS_GRIDSS   } from '../../../modules/local/gridss/gridss/main.nf'
-include { GRIDSS_SOMATIC_FILTER  } from '../../../modules/local/gridss/somaticFilter/main.nf'
+include { GRIDSS_GRIDSS   } from '../../modules/nf-core/gridss/gridss/main.nf'
+include { GRIDSS_SOMATIC_FILTER  } from '../../modules/nf-core/gridss/somaticfilter/main.nf'
 
 workflow GRIDSS_SV_CALLING {
     take:
@@ -55,13 +55,11 @@ workflow GRIDSS_SOMATIC_FILTER_STEP {
 
     somatic_high_confidence = GRIDSS_SOMATIC_FILTER.out.somatic_high_vcf
     somatic_all             = GRIDSS_SOMATIC_FILTER.out.somatic_all_vcf
-    all_vcf = Channel.empty().mix(somatic_all, somatic_high_confidence)
 
     versions                = GRIDSS_SOMATIC_FILTER.out.versions
 
     emit:
     somatic_high_confidence // channel: [mandatory] [ meta, high confidence somatic vcf ]
     somatic_all
-    all_vcf                 
     versions
 }

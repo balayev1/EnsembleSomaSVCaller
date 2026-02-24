@@ -8,19 +8,20 @@ nextflow.enable.dsl=2
 
 // Delly
 include { BAM_DELLY } from '../subworkflows/bam_delly/main.nf'
-include { BCFTOOLS_VIEW } from '../../modules/local/bcftools/view/main.nf'
+include { BCFTOOLS_VIEW } from '../modules/nf-core/bcftools/view/main.nf'
 
 // Gridss
 include { GRIDSS_SV_CALLING } from '../subworkflows/bam_gridss/main.nf'
 include { GRIDSS_SOMATIC_FILTER_STEP } from '../subworkflows/bam_gridss/main.nf'
 
 // Svaba
-include { SVABA } from '../../modules/local/svaba/main.nf'
+include { SVABA } from '../modules/local/svaba/main.nf'
 
 // Brass
-include { BAM_STATS }     from '../../modules/local/bam_stats/main.nf'
-include { BRASS }         from '../../modules/local/brass/main.nf'
-include { TRANSFORM_ASCAT_STATS } from '../../modules/local/transform_ascat_stats/main.nf'
+include { BAM_STATS as NORMAL_BAM_STATS } from '../modules/local/bam_stats/main.nf'
+include { BAM_STATS as TUMOR_BAM_STATS }  from '../modules/local/bam_stats/main.nf'
+include { BRASS }         from '../modules/local/brass/main.nf'
+include { TRANSFORM_ASCAT_STATS } from '../modules/local/transform_ascat_stats/main.nf'
 
 // Genomic breakpoint estimation workflow for JAbBA
 workflow BREAKPOINT_ESTIMATOR {
@@ -56,7 +57,6 @@ workflow BREAKPOINT_ESTIMATOR {
     brass_depth
     brass_viral
     brass_microbes
-    brass_microbe_prefix
     brass_gcbins
     brass_cytoband
     brass_centtel
@@ -144,7 +144,7 @@ workflow BREAKPOINT_ESTIMATOR {
         gridss_pon
     )
     gridss_vcf_hc   = GRIDSS_SOMATIC_FILTER_STEP.out.somatic_high_confidence
-    gridss_vcf_all  = GRIDSS_SOMATIC_FILTER_STEP.out.somatic_all_vcf
+    gridss_vcf_all  = GRIDSS_SOMATIC_FILTER_STEP.out.somatic_all
     versions        = versions.mix(GRIDSS_SOMATIC_FILTER_STEP.out.versions)
 
     //
@@ -183,20 +183,18 @@ workflow BREAKPOINT_ESTIMATOR {
         [meta, tumor, tumor_index] 
     }
 
-    normal_bamstats     = BAM_STATS(normal_bams, fai)
-    versions            = versions.mix(normal_bamstats.out.versions)
+    NORMAL_BAM_STATS(normal_bams, fai)
+    versions = versions.mix(NORMAL_BAM_STATS.out.versions)
 
-    tumor_bamstats      = BAM_STATS(tumor_bams, fai)
-    versions            = versions.mix(tumor_bamstats.out.versions)
+    TUMOR_BAM_STATS(tumor_bams, fai)
+    versions = versions.mix(TUMOR_BAM_STATS.out.versions)
 
     brass_input = samples
-        .join(tumor_bamstats.out.bas)
-        .join(normal_bamstats.out.bas)
+        .join(TUMOR_BAM_STATS.out.bas)
+        .join(NORMAL_BAM_STATS.out.bas)
         .join(TRANSFORM_ASCAT_STATS.out.brass_stats)
         .map { meta, control, control_index, tumor, tumor_index, 
-               t_bam, t_bai, t_bas, 
-               n_bam, n_bai, n_bas, 
-               ascat_sum ->
+               t_bas, n_bas, ascat_sum ->
                [ meta, control, control_index, tumor, tumor_index, t_bas, n_bas, ascat_sum ]
         }
 

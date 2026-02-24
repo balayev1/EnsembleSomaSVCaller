@@ -22,7 +22,7 @@ process TRANSFORM_ASCAT_STATS {
     def gender = meta.gender ?: meta.sex ?: "male" 
     
     """
-    python transform_ascat_purityploidy.py \\
+    transform_ascat_purityploidy.py \\
         ${ascat_purityploidy} \\
         ${gender} \\
         ${prefix}.brass.summary.stats.txt

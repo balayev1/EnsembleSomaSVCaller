@@ -54,7 +54,7 @@ workflow BAM_DELLY {
     delly_call_bcf      =   DELLY_CALL.out.bcf
     delly_call_bcf_csi  =   DELLY_CALL.out.csi
 
-    meta_for_tsv = DELLY_CALL.out.bcf.map { meta, bcf -> [meta] }
+    meta_for_tsv = DELLY_CALL.out.bcf.map { meta, bcf -> meta }
     CREATE_DELLY_SAMPLES_TSV(meta_for_tsv)
     delly_samples_tsv = CREATE_DELLY_SAMPLES_TSV.out.tsv
 

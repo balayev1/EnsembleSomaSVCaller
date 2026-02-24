@@ -42,7 +42,7 @@ process GRIDSS_GRIDSS {
     ${bwa}
 
     gridss \\
-        --labels ${meta.normal_id},${meta.tumor_id} \\
+        --labels ${normalbam.getSimpleName()},${tumorbam.getSimpleName()} \\
         --output ${prefix}.vcf.gz \\
         --reference ${fasta} \\
         --threads ${task.cpus} \\

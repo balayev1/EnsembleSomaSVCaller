@@ -47,8 +47,6 @@ def make_outfile(file_in, gender, file_out):
 def main(args=None):
     args = parse_args(args)
     make_outfile(args.FILE_IN, args.GENDER, args.FILE_OUT)
-    return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
