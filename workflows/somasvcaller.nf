@@ -44,7 +44,7 @@ if (params.input) { ch_input = file(params.input) } else { exit 1, 'Input sample
 
 // Initialize file channels based on params, defined in the params.genomes[params.genome] scope
 fasta                       = params.fasta                      ? Channel.fromPath(params.fasta).first()                        : Channel.empty()
-fasta_fai                   = params.fasta_fai                  ? Channel.fromPath(params.fasta_fai).collect()                  : Channel.empty()
+fasta_fai                   = params.fasta_fai                  ? Channel.fromPath(params.fasta_fai).first()                  : Channel.empty()
 target_regs                 = params.target_regs                ? Channel.fromPath(params.target_regs).collect()                : Channel.value([])
 dbsnp                       = params.dbsnp                      ? Channel.fromPath(params.dbsnp).collect()                      : Channel.empty()
 dbsnp_tbi                   = params.dbsnp_tbi                  ? Channel.fromPath(params.dbsnp_tbi).collect()                  : Channel.empty()
