@@ -2,7 +2,7 @@
 // DRYCLEAN
 //
 
-include { DRYCLEAN } from './modules/nf-core/dryclean/main.nf'
+include { DRYCLEAN } from '../../modules/nf-core/dryclean/main.nf'
 
 workflow COV_DRYCLEAN {
 

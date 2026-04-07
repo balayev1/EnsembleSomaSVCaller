@@ -1,0 +1,22 @@
+Bootstrap: docker
+From: quay.io/biocontainers/r-sequenza:3.0.0--r42h3342da4_5
+
+%labels
+    Author balay011
+    Description Sequenza container with ShixiangWang/copynumber fork for hg38 support
+
+%environment
+    export VROOM_CONNECTION_SIZE=33554432
+
+%files
+    test_hg38_extract.R /usr/local/bin/test_hg38_extract.R
+
+%post
+    Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); install.packages("remotes")'
+    Rscript -e 'remotes::install_github("ShixiangWang/copynumber", ref = "2e31d59f558d5e3e44215da2f612707791e3f030", upgrade = "never", dependencies = TRUE, build_vignettes = FALSE)'
+    chmod 755 /usr/local/bin/test_hg38_extract.R
+    Rscript -e 'library(copynumber); cat("copynumber:", as.character(packageVersion("copynumber")), "\\n")'
+    Rscript -e 'library(sequenza); cat("sequenza:", as.character(packageVersion("sequenza")), "\\n")'
+
+%runscript
+    exec "$@"

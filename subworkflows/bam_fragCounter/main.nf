@@ -2,8 +2,8 @@
 // BAM FRAGCOUNTER
 //
 
-include { FRAGCOUNTER } from '../../../modules/local/fragcounter/main.nf'
-include { REBIN_RAW_FRAGCOUNTER } from '../../../modules/local/fragcounter/main.nf'
+include { FRAGCOUNTER } from '../../modules/nf-core/fragcounter/main.nf'
+include { REBIN_RAW_FRAGCOUNTER } from '../../modules/nf-core/fragcounter/main.nf'
 
 workflow BAM_FRAGCOUNTER {
     // defining inputs

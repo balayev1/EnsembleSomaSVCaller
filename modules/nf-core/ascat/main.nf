@@ -7,7 +7,7 @@ process ASCAT {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "${workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container
+    container "${workflow.containerEngine == 'singularity'
         ? 'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/4c/4cf02c7911ee5e974ce7db978810770efbd8d872ff5ab3462d2a11bcf022fab5/data'
         : 'community.wave.seqera.io/library/ascat_cancerit-allelecount:c3e8749fa4af0e99'}"
 
@@ -38,7 +38,18 @@ process ASCAT {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
 
-    def gender        = args.gender        ? "${args.gender}"        : "NULL"
+    def rawGender     = args.gender        ? "${args.gender}"        : "NULL"
+    def gender        = rawGender
+    if (rawGender != 'NULL') {
+        switch (rawGender.toLowerCase()) {
+            case ['female', 'f', 'xx']:
+                gender = 'XX'
+                break
+            case ['male', 'm', 'xy']:
+                gender = 'XY'
+                break
+        }
+    }
     def genomeVersion = args.genomeVersion ? "${args.genomeVersion}" : "NULL"
     def purity        = args.purity        ? "${args.purity}"        : "NULL"
     def ploidy        = args.ploidy        ? "${args.ploidy}"        : "NULL"
@@ -63,7 +74,7 @@ process ASCAT {
         additional_allelecounter_arg = ", additional_allelecounter_flags = '-r \"${fasta}\"'"
     }
     else {
-	additional_allelecounter_arg = ""
+        additional_allelecounter_arg = ""
     }
 
     """
@@ -73,8 +84,13 @@ process ASCAT {
     options(bitmapType='cairo')
 
     if(dir.exists("${allele_files}")) {
+        # expected production use of a directory
         allele_path   = normalizePath("${allele_files}")
-        allele_prefix = paste0(allele_path, "/G1000_alleles_hg38_")
+        allele_prefix = paste0(allele_path, "/", "${allele_files}", "_chr")
+    } else if(file.exists("${allele_files}")) {
+        # expected testing use of a single file
+        allele_path   = basename(normalizePath("${allele_files}"))
+        allele_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", allele_path)
     } else {
         stop("The specified allele files do not exist.")
     }
@@ -86,7 +102,11 @@ process ASCAT {
     if(dir.exists("${loci_files}")) {
         # expected production use of a directory
         loci_path   = normalizePath("${loci_files}")
-        loci_prefix = paste0(loci_path, "/G1000_loci_hg38_")
+        loci_prefix = paste0(loci_path, "/", "${loci_files}", "_chr")
+    } else if(file.exists("${loci_files}")) {
+        # expected testing use of a single file
+        loci_path   = basename(normalizePath("${loci_files}"))
+        loci_prefix = sub('_chr[0-9]+\\\\.txt\$', "_chr", loci_path)
     } else {
         stop("The specified loci files do not exist.")
     }

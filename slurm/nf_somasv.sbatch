@@ -10,11 +10,37 @@
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=balay011@umn.edu
 
+set -euo pipefail
+
+unset JAVA_HOME JAVA_CMD
+module purge
+module load java/openjdk-21.0.2
+module load nextflow/25.10.4
+module load singularity
+
+PIPELINE_INPUT="${PIPELINE_INPUT:?PIPELINE_INPUT is required}"
+PIPELINE_SAMPLE_ID="${PIPELINE_SAMPLE_ID:?PIPELINE_SAMPLE_ID is required}"
+PIPELINE_OUTDIR="${PIPELINE_OUTDIR:?PIPELINE_OUTDIR is required}"
+PIPELINE_WORKDIR="${PIPELINE_WORKDIR:?PIPELINE_WORKDIR is required}"
+PIPELINE_LAUNCH_DIR="${PIPELINE_LAUNCH_DIR:?PIPELINE_LAUNCH_DIR is required}"
+ACESEQ_MANIFEST="${ACESEQ_MANIFEST:?ACESEQ_MANIFEST is required}"
+SOMASV_REPO="${SOMASV_REPO:?SOMASV_REPO is required}"
+
+mkdir -p "${PIPELINE_LAUNCH_DIR}" "${PIPELINE_WORKDIR}"
+cd "${PIPELINE_LAUNCH_DIR}"
+
 echo "SomaSV Pipeline Started at $(date)"
 
-# Run the pipeline
-nextflow run main.nf \
+python3 "${SOMASV_REPO}/bin/validate_aceseq_manifest.py" \
+    --samplesheet "${PIPELINE_INPUT}" \
+    --manifest "${ACESEQ_MANIFEST}"
+
+nextflow run "${SOMASV_REPO}/main.nf" \
     -profile singularity \
+    --input "${PIPELINE_INPUT}" \
+    --outdir "${PIPELINE_OUTDIR}" \
+    --aceseq_manifest "${ACESEQ_MANIFEST}" \
+    -work-dir "${PIPELINE_WORKDIR}" \
     -resume
 
 echo "SomaSV Pipeline Finished at $(date)"
