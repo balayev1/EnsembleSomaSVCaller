@@ -9,6 +9,7 @@ params.fasta_fai                = WorkflowMain.getGenomeAttribute(params, 'fasta
 params.target_regs              = WorkflowMain.getGenomeAttribute(params, 'target_regs')
 params.dbsnp                    = WorkflowMain.getGenomeAttribute(params, 'dbsnp')
 params.dbsnp_tbi                = WorkflowMain.getGenomeAttribute(params, 'dbsnp_tbi')
+params.chrom_sizes              = WorkflowMain.getGenomeAttribute(params, 'chrom_sizes')
 params.bwa_index                = WorkflowMain.getGenomeAttribute(params, 'bwa_index')
 params.hapmap_sites             = WorkflowMain.getGenomeAttribute(params, 'hapmap_sites')
 params.ascat_alleles            = WorkflowMain.getGenomeAttribute(params, 'ascat_alleles')
@@ -24,6 +25,7 @@ params.gridss_pon               = WorkflowMain.getGenomeAttribute(params, 'grids
 params.indel_mask               = WorkflowMain.getGenomeAttribute(params, 'indel_mask')
 params.germ_sv_db               = WorkflowMain.getGenomeAttribute(params, 'germ_sv_db')
 params.simple_seq_db            = WorkflowMain.getGenomeAttribute(params, 'simple_seq_db')
+params.simple_seq_db_slop       = WorkflowMain.getGenomeAttribute(params, 'simple_seq_db_slop')
 params.brass_cache_dir          = WorkflowMain.getGenomeAttribute(params, 'brass_cache_dir')
 params.brass_depth              = WorkflowMain.getGenomeAttribute(params, 'brass_depth')
 params.brass_viral              = WorkflowMain.getGenomeAttribute(params, 'brass_viral')
@@ -39,6 +41,8 @@ params.brass_genome             = WorkflowMain.getGenomeAttribute(params, 'brass
 params.gcmapdir_frag            = WorkflowMain.getGenomeAttribute(params, 'gcmapdir_frag')
 params.build_dryclean           = WorkflowMain.getGenomeAttribute(params, 'build_dryclean')
 params.pon_dryclean             = WorkflowMain.getGenomeAttribute(params, 'pon_dryclean')
+params.blacklist_coverage_jabba = WorkflowMain.getGenomeAttribute(params, 'blacklist_coverage_jabba') ?: params.blacklist_coverage_jabba
+params.whitelist_genes_jabba    = WorkflowMain.getGenomeAttribute(params, 'whitelist_genes_jabba') ?: params.whitelist_genes_jabba
 
 include { SOMASV_CALLER } from './workflows/somasvcaller.nf'
 

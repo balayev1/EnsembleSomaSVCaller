@@ -14,6 +14,17 @@ include { BCFTOOLS_VIEW } from '../modules/nf-core/bcftools/view/main.nf'
 include { GRIDSS_SV_CALLING } from '../subworkflows/bam_gridss/main.nf'
 include { GRIDSS_SOMATIC_FILTER_STEP } from '../subworkflows/bam_gridss/main.nf'
 
+// Consensus merging and filtering
+include { VCF_TO_PLAIN as DELLY_VCF_TO_PLAIN } from '../modules/local/vcf_to_plain/main.nf'
+include { VCF_TO_PLAIN as GRIDSS_VCF_TO_PLAIN } from '../modules/local/vcf_to_plain/main.nf'
+include { VCF_TO_PLAIN as BRASS_VCF_TO_PLAIN } from '../modules/local/vcf_to_plain/main.nf'
+include { VCF_TO_PLAIN as SVABA_VCF_TO_PLAIN } from '../modules/local/vcf_to_plain/main.nf'
+include { POST_SURVIVOR_PROCESSING as SURVIVOR_POST_FILTER_PROCESSING } from '../modules/local/post_survivor_processing/main.nf'
+include { BCFTOOLS_REHEADER as SURVIVOR_BCFTOOLS_REHEADER } from '../modules/nf-core/bcftools/reheader/main.nf'
+include { SURVIVOR_MERGE as BREAKPOINTS_SURVIVOR_MERGE } from '../modules/nf-core/survivor/merge/main.nf'
+include { BEDTOOLS_SLOP as INDEL_MASK_SLOP } from '../modules/nf-core/bedtools/slop/main.nf'
+include { BEDTOOLS_INTERSECT as FILTER_BLACKLIST_REGIONS } from '../modules/nf-core/bedtools/intersect/main.nf'
+
 // Svaba
 include { SVABA } from '../modules/local/svaba/main.nf'
 
@@ -36,7 +47,14 @@ workflow BREAKPOINT_ESTIMATOR {
     indel_mask
     germ_sv_db
     simple_seq_db
+    chrom_sizes
     svaba_error_rate
+    survivor_max_distance_breakpoints
+    survivor_min_supporting_callers
+    survivor_account_for_type
+    survivor_account_for_sv_strands
+    survivor_estimate_distanced_by_sv_size
+    survivor_min_sv_size
     gridss_blacklist
     gridss_pon
     delly_blacklist
@@ -70,6 +88,9 @@ workflow BREAKPOINT_ESTIMATOR {
 
     main:
     versions = Channel.empty()
+    empty_intersect_sizes = Channel.value([[id: 'no_sizes'], []])
+    simple_seq_bed = simple_seq_db.map { it instanceof List ? it[0] : it }
+    indel_mask_bed = indel_mask.map { it instanceof List ? it[0] : it }
 
     //
     // Prepare reference inputs for DELLY
@@ -224,6 +245,82 @@ workflow BREAKPOINT_ESTIMATOR {
     brass_vcf   = BRASS.out.vcf
     versions    = versions.mix(BRASS.out.versions)
 
+    //
+    // Convert compressed caller VCFs to plain-text for SURVIVOR
+    //
+    DELLY_VCF_TO_PLAIN(delly_vcf)
+    GRIDSS_VCF_TO_PLAIN(gridss_vcf_hc)
+    BRASS_VCF_TO_PLAIN(brass_vcf)
+    SVABA_VCF_TO_PLAIN(svaba_vcf_som_sv)
+    versions = versions
+        .mix(DELLY_VCF_TO_PLAIN.out.versions_gzip)
+        .mix(GRIDSS_VCF_TO_PLAIN.out.versions_gzip)
+        .mix(BRASS_VCF_TO_PLAIN.out.versions_gzip)
+        .mix(SVABA_VCF_TO_PLAIN.out.versions_gzip)
+
+    survivor_merge_input = DELLY_VCF_TO_PLAIN.out.vcf
+        .join(GRIDSS_VCF_TO_PLAIN.out.vcf)
+        .join(BRASS_VCF_TO_PLAIN.out.vcf)
+        .join(SVABA_VCF_TO_PLAIN.out.vcf)
+        .map { meta, delly_plain_vcf, gridss_plain_vcf, brass_plain_vcf, svaba_plain_vcf ->
+            [meta, [delly_plain_vcf, gridss_plain_vcf, brass_plain_vcf, svaba_plain_vcf]]
+        }
+
+    //
+    // Merge consensus breakpoints across callers
+    //
+    BREAKPOINTS_SURVIVOR_MERGE(
+        survivor_merge_input,
+        survivor_max_distance_breakpoints,
+        survivor_min_supporting_callers,
+        survivor_account_for_type,
+        survivor_account_for_sv_strands,
+        survivor_estimate_distanced_by_sv_size,
+        survivor_min_sv_size
+    )
+    survivor_consensus_vcf = BREAKPOINTS_SURVIVOR_MERGE.out.vcf
+    versions               = versions.mix(BREAKPOINTS_SURVIVOR_MERGE.out.versions_survivor)
+
+    //
+    // Build padded blacklist regions per sample
+    //
+    INDEL_MASK_SLOP(
+        survivor_consensus_vcf
+            .combine(indel_mask_bed)
+            .map { meta, consensus_vcf, indel_mask_bed_file -> [meta, indel_mask_bed_file] },
+        chrom_sizes
+    )
+    versions = versions.mix(INDEL_MASK_SLOP.out.versions_bedtools)
+
+    //
+    // Filter consensus breakpoints against blacklist regions
+    //
+    FILTER_BLACKLIST_REGIONS(
+        survivor_consensus_vcf
+            .join(INDEL_MASK_SLOP.out.bed)
+            .map { meta, consensus_vcf_file, blacklist_bed -> [meta, consensus_vcf_file, blacklist_bed] },
+        empty_intersect_sizes
+    )
+    survivor_blacklist_filtered_vcf = FILTER_BLACKLIST_REGIONS.out.intersect
+    versions                        = versions.mix(FILTER_BLACKLIST_REGIONS.out.versions_bedtools)
+
+    //
+    // Remove chrY breakpoints from female samples after blacklist filtering
+    //
+    SURVIVOR_POST_FILTER_PROCESSING(survivor_blacklist_filtered_vcf)
+    survivor_postprocessed_vcf = SURVIVOR_POST_FILTER_PROCESSING.out.vcf
+    versions                   = versions.mix(SURVIVOR_POST_FILTER_PROCESSING.out.versions)
+
+    //
+    // Restore contig lengths from the reference .fai before JaBbA seqname coercion
+    //
+    SURVIVOR_BCFTOOLS_REHEADER(
+        survivor_postprocessed_vcf.map { meta, vcf -> [meta, vcf, [], []] },
+        ch_fai
+    )
+    survivor_filtered_vcf = SURVIVOR_BCFTOOLS_REHEADER.out.vcf
+    versions              = versions.mix(SURVIVOR_BCFTOOLS_REHEADER.out.versions_bcftools)
+
     emit:
     delly_filter_bcf
     delly_vcf
@@ -233,5 +330,7 @@ workflow BREAKPOINT_ESTIMATOR {
     svaba_vcf_unfiltered_som_sv
     brass_bedpe
     brass_vcf
+    survivor_consensus_vcf
+    survivor_filtered_vcf
     versions
 }

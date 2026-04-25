@@ -1,0 +1,17 @@
+# /usr/local/lib/R/etc/Rprofile.site
+
+local({
+    # Set default CRAN mirror to avoid interactive prompts breaking Nextflow
+    r <- getOption("repos")
+    r["CRAN"] <- "https://cloud.r-project.org"
+    options(repos = r)
+
+    # Disable interactive menus in non-interactive container environments
+    options(menu.graphics = FALSE)
+    
+    # Silence startup messages for heavily masked MSK packages to keep logs clean
+    suppressPackageStartupMessages({
+        requireNamespace("methods", quietly = TRUE)
+        requireNamespace("GenomicRanges", quietly = TRUE)
+    })
+})

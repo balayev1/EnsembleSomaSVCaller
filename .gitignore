@@ -1,0 +1,6 @@
+.nextflow/
+.nextflow.log
+logs/
+work/
+assets/gurobi.lic
+containers/jabba-r45-gurobi1300/gurobi13.0.1_linux64.tar.gz

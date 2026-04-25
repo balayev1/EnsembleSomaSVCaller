@@ -24,8 +24,8 @@ workflow GRIDSS_SV_CALLING {
 
     GRIDSS_GRIDSS(input, fasta, fasta_fai, bwa_index, blacklist_gridss)
 
-    vcf                    = GRIDSS_GRIDSS.out.filtered_vcf
-    vcf_index              = GRIDSS_GRIDSS.out.filtered_vcf_index
+    vcf                    = GRIDSS_GRIDSS.out.vcf
+    vcf_index              = GRIDSS_GRIDSS.out.vcf_index
 
 
     versions = versions.mix(GRIDSS_GRIDSS.out.versions)

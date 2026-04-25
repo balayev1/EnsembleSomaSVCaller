@@ -14,9 +14,9 @@ process GRIDSS_SOMATIC_FILTER {
     path(pondir_gridss)     // pon path
 
     output:
-    tuple val(meta), path("*.high_confidence_somatic.vcf")          , emit: somatic_high_vcf,          optional:true
-    tuple val(meta), path("*.high_and_low_confidence_somatic.vcf")  , emit: somatic_all_vcf,           optional:true
-    path "versions.yml"                                             , emit: versions
+    tuple val(meta), path("*.high_confidence_somatic.vcf.bgz")         , emit: somatic_high_vcf
+    tuple val(meta), path("*.high_and_low_confidence_somatic.vcf.bgz") , emit: somatic_all_vcf
+    path "versions.yml"                                                  , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -51,8 +51,8 @@ process GRIDSS_SOMATIC_FILTER {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def VERSION = '2.13.2' // WARN: Version information not provided by tool on CLI. Please update this string when bumping container versions.
     """
-    touch ${prefix}.high_confidence_somatic.vcf
-    touch ${prefix}.high_and_low_confidence_somatic.vcf
+    touch ${prefix}.high_confidence_somatic.vcf.bgz
+    touch ${prefix}.high_and_low_confidence_somatic.vcf.bgz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

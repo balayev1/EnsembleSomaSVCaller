@@ -8,6 +8,10 @@ nextflow.enable.dsl=2
 
 // Check input path parameters to see if they exist
 def dbsnp_chr_prefix_rename_path = params.dbsnp_chr_prefix_rename ?: "${projectDir}/assets/dbsnp_chr_prefix_rename.tsv"
+def optionalJabbaPathParams = [
+    params.blacklist_coverage_jabba,
+    params.whitelist_genes_jabba
+].findAll { it && !(it in ['NULL', 'NA']) }
 def checkPathParamList = [ 
     params.input, 
     params.aceseq_manifest,
@@ -19,6 +23,7 @@ def checkPathParamList = [
     params.ascat_rt, 
     params.dbsnp, 
     params.dbsnp_tbi, 
+    params.chrom_sizes,
     params.gcmapdir_frag,
     params.hapmap_sites,
     params.pon_dryclean,
@@ -35,7 +40,7 @@ def checkPathParamList = [
     params.germ_sv_db,
     params.simple_seq_db,
     dbsnp_chr_prefix_rename_path
-]
+] + optionalJabbaPathParams
 for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
 
 // Check mandatory parameters
@@ -52,6 +57,7 @@ fasta_fai                   = params.fasta_fai                  ? Channel.fromPa
 target_regs                 = params.target_regs                ? Channel.fromPath(params.target_regs).collect()                : Channel.value([])
 dbsnp                       = params.dbsnp                      ? Channel.fromPath(params.dbsnp).first()                        : Channel.empty()
 dbsnp_tbi                   = params.dbsnp_tbi                  ? Channel.fromPath(params.dbsnp_tbi).first()                    : Channel.empty()
+chrom_sizes                 = params.chrom_sizes                ? Channel.fromPath(params.chrom_sizes).first()                  : Channel.empty()
 dbsnp_chr_prefix_rename     = Channel.fromPath(dbsnp_chr_prefix_rename_path).first()
 
 // Ascat
@@ -102,9 +108,11 @@ germline_file_dryclean      = params.germline_file_dryclean     ? Channel.fromPa
     IMPORT SUBWORKFLOWS
 */
 include { INPUT_PREP } from '../subworkflows/input_prep.nf'
-include { ZERO_SHOT_CNV_CALL } from '../subworkflows/zeroshot_cnv_calling.nf'
+include { PURITY_PLOIDY_ESTIMATION } from '../subworkflows/purity_ploidy_estimation.nf'
 include { BAM_HETPILEUPS } from '../subworkflows/bam_hetpileups/main.nf'
 include { COVERAGE_JABBA } from '../subworkflows/coverage_jabba.nf'
+include { COV_CBS } from '../subworkflows/cov_cbs/main.nf'
+include { JABBA_RUN } from '../subworkflows/jabba/main.nf'
 include { BREAKPOINT_ESTIMATOR } from '../subworkflows/breakpoint_estimation.nf'
 include { BCFTOOLS_ANNOTATE } from '../modules/nf-core/bcftools/annotate/main.nf'
 include { VALIDATE_ACESEQ_MANIFEST } from '../modules/local/check_aceseq/main.nf'
@@ -122,6 +130,7 @@ workflow SOMASV_CALLER {
 
     VALIDATE_ACESEQ_MANIFEST(ch_input, manifest_input)
     manifest_ready = VALIDATE_ACESEQ_MANIFEST.out.ready
+    aceseq_manifest_tsv = Channel.value(manifest_input)
     samples = prepared_samples
         .combine(manifest_ready)
         .map { meta, control, control_index, tumor, tumor_index, _ ->
@@ -147,9 +156,9 @@ workflow SOMASV_CALLER {
     versions       = versions.mix(BCFTOOLS_ANNOTATE.out.versions_bcftools)
 
     //
-    // SUBWORKFLOW: Run zero-shot CNV calling with ASCAT, SEQUENZA, and FACETS
+    // SUBWORKFLOW: Estimate purity and ploidy with ASCAT, SEQUENZA, FACETS, and ACEseq
     //  
-    ZERO_SHOT_CNV_CALL(
+    PURITY_PLOIDY_ESTIMATION(
         samples, 
         fasta, 
         fasta_fai,
@@ -160,10 +169,12 @@ workflow SOMASV_CALLER {
         target_regs,
         dbsnp_chr,
         dbsnp_chr_tbi,
-        facets_annotation_bed
+        facets_annotation_bed,
+        aceseq_manifest_tsv
     )
-    ascat_purityploidy  = ZERO_SHOT_CNV_CALL.out.ascat_purityploidy
-    versions            = versions.mix(ZERO_SHOT_CNV_CALL.out.versions)
+    ascat_purityploidy      = PURITY_PLOIDY_ESTIMATION.out.ascat_purityploidy
+    purity_ploidy_consensus = PURITY_PLOIDY_ESTIMATION.out.purity_ploidy_consensus
+    versions                = versions.mix(PURITY_PLOIDY_ESTIMATION.out.versions)
 
     //
     // SUBWORKFLOW: Generate GC- and mappability-corrected denoised genomic coverage files for JAbBA
@@ -216,7 +227,14 @@ workflow SOMASV_CALLER {
         indel_mask,
         germ_sv_db,
         simple_seq_db,
+        chrom_sizes,
         params.svaba_error_rate,
+        params.survivor_max_distance_breakpoints,
+        params.survivor_min_supporting_callers,
+        params.survivor_account_for_type,
+        params.survivor_account_for_sv_strands,
+        params.survivor_estimate_distanced_by_sv_size,
+        params.survivor_min_sv_size,
         gridss_blacklist,
         gridss_pon,
         delly_blacklist,
@@ -249,4 +267,34 @@ workflow SOMASV_CALLER {
         params.brass_mincn
     )
     versions = versions.mix(BREAKPOINT_ESTIMATOR.out.versions)
+
+    //
+    // SUBWORKFLOW: Segment drycleaned tumor/control coverage with CBS
+    //
+    cbs_cov_input = COVERAGE_JABBA.out.tumor_dryclean_cov
+        .join(COVERAGE_JABBA.out.normal_dryclean_cov)
+        .map { meta, tumor_cov, normal_cov ->
+            [meta, tumor_cov, normal_cov]
+        }
+
+    COV_CBS(
+        cbs_cov_input,
+        params.cnsignif_cbs,
+        params.field_cbs,
+        params.name_cbs ?: ''
+    )
+    versions = versions.mix(COV_CBS.out.versions)
+
+    //
+    // SUBWORKFLOW: Run JaBbA on merged breakpoints and coverage
+    //
+    JABBA_RUN(
+        BREAKPOINT_ESTIMATOR.out.survivor_filtered_vcf,
+        COV_CBS.out.cbs_cov_rds,
+        BAM_HETPILEUPS.out.het_pileups_wgs,
+        COV_CBS.out.cbs_seg_rds,
+        COV_CBS.out.cbs_nseg_rds,
+        purity_ploidy_consensus
+    )
+    versions = versions.mix(JABBA_RUN.out.versions)
 }

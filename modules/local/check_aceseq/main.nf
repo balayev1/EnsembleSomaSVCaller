@@ -1,6 +1,11 @@
 process VALIDATE_ACESEQ_MANIFEST {
     executor 'local'
 
+    conda "conda-forge::python=3.8.3"
+    container "${ workflow.containerEngine == 'singularity' ?
+        'https://depot.galaxyproject.org/singularity/python:3.8.3' :
+        'quay.io/biocontainers/python:3.8.3' }"
+        
     input:
     path samplesheet
     path manifest

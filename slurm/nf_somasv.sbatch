@@ -25,6 +25,7 @@ PIPELINE_WORKDIR="${PIPELINE_WORKDIR:?PIPELINE_WORKDIR is required}"
 PIPELINE_LAUNCH_DIR="${PIPELINE_LAUNCH_DIR:?PIPELINE_LAUNCH_DIR is required}"
 ACESEQ_MANIFEST="${ACESEQ_MANIFEST:?ACESEQ_MANIFEST is required}"
 SOMASV_REPO="${SOMASV_REPO:?SOMASV_REPO is required}"
+PIPELINE_GUROBI_PATH="${PIPELINE_GUROBI_PATH:-}"
 
 mkdir -p "${PIPELINE_LAUNCH_DIR}" "${PIPELINE_WORKDIR}"
 cd "${PIPELINE_LAUNCH_DIR}"
@@ -35,12 +36,20 @@ python3 "${SOMASV_REPO}/bin/validate_aceseq_manifest.py" \
     --samplesheet "${PIPELINE_INPUT}" \
     --manifest "${ACESEQ_MANIFEST}"
 
-nextflow run "${SOMASV_REPO}/main.nf" \
-    -profile singularity \
-    --input "${PIPELINE_INPUT}" \
-    --outdir "${PIPELINE_OUTDIR}" \
-    --aceseq_manifest "${ACESEQ_MANIFEST}" \
-    -work-dir "${PIPELINE_WORKDIR}" \
+nextflow_cmd=(
+    nextflow run "${SOMASV_REPO}/main.nf"
+    -profile singularity
+    --input "${PIPELINE_INPUT}"
+    --outdir "${PIPELINE_OUTDIR}"
+    --aceseq_manifest "${ACESEQ_MANIFEST}"
+    -work-dir "${PIPELINE_WORKDIR}"
     -resume
+)
+
+if [[ -n "${PIPELINE_GUROBI_PATH}" ]]; then
+    nextflow_cmd+=( --gurobi_license_path "${PIPELINE_GUROBI_PATH}" )
+fi
+
+"${nextflow_cmd[@]}"
 
 echo "SomaSV Pipeline Finished at $(date)"

@@ -12,7 +12,8 @@ Usage:
     --aceseq-repo /path/to/nf-aceseq \
     --somasv-out-base /path/to/SomaticSV_outs \
     --samplesheet /path/to/samplesheet.csv \
-    [--run-id RUN_ID]
+    [--run-id RUN_ID] \
+    [--gurobi-path /path/to/gurobi.lic]
 
 Required:
   --somasv-repo
@@ -22,6 +23,7 @@ Required:
 
 Optional:
   --run-id
+  --gurobi-path
 
 Legacy positional form is still accepted:
   bash master_somasv.sh /path/to/samplesheet.csv [run_id]
@@ -33,6 +35,7 @@ ACESEQ_REPO="${ACESEQ_REPO:-}"
 SOMASV_OUT_BASE="${SOMASV_OUT_BASE:-}"
 SAMPLESHEET="${SAMPLESHEET:-}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
+GUROBI_PATH="${GUROBI_PATH:-}"
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -55,6 +58,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --run-id)
             RUN_ID="$2"
+            shift 2
+            ;;
+        --gurobi-path)
+            GUROBI_PATH="$2"
             shift 2
             ;;
         --help|-h)
@@ -106,9 +113,18 @@ if [[ ! -f "${SAMPLESHEET}" ]]; then
     exit 1
 fi
 
+if [[ -z "${GUROBI_PATH}" ]]; then
+    GUROBI_PATH="${SOMASV_REPO%/}/assets/gurobi.lic"
+fi
+if [[ ! -f "${GUROBI_PATH}" ]]; then
+    echo "Gurobi license not found: ${GUROBI_PATH}" >&2
+    exit 1
+fi
+
 export SOMASV_REPO
 export ACESEQ_REPO
 export SOMASV_OUT_BASE
+export GUROBI_PATH
 
 ACESEQ_OUT_BASE="${ACESEQ_OUT_BASE:-${SOMASV_OUT_BASE%/}/ACESEQ_out}"
 ACESEQ_RUN_OUTDIR="${ACESEQ_OUT_BASE%/}/${RUN_ID}"
@@ -135,6 +151,7 @@ echo "Run ID: ${RUN_ID}"
 echo "Samplesheet: ${SAMPLESHEET}"
 echo "ACEseq outdir: ${ACESEQ_RUN_OUTDIR}"
 echo "SomaSV outdir: ${SOMASV_RUN_OUTDIR}"
+echo "Gurobi license: ${GUROBI_PATH}"
 echo "Launch root: ${LAUNCH_ROOT}"
 echo
 
@@ -176,7 +193,7 @@ echo
         SOMASV_JOB=$(
             sbatch --parsable \
                 --dependency=afterok:${ACESEQ_JOB} \
-                --export=ALL,SOMASV_REPO="${SOMASV_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${SOMASV_RUN_OUTDIR}",PIPELINE_WORKDIR="${somasv_work_dir}",PIPELINE_LAUNCH_DIR="${somasv_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}" \
+                --export=ALL,SOMASV_REPO="${SOMASV_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${SOMASV_RUN_OUTDIR}",PIPELINE_WORKDIR="${somasv_work_dir}",PIPELINE_LAUNCH_DIR="${somasv_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}",PIPELINE_GUROBI_PATH="${GUROBI_PATH}" \
                 "${SOMASV_REPO}/slurm/nf_somasv.sbatch"
         )
 

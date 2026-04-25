@@ -17,11 +17,9 @@ process GRIDSS_GRIDSS {
 
 
     output:
-    tuple val(meta), path("*gridss.vcf.gz"), path("*gridss.vcf.gz.tbi"), emit: vcf, optional:true
-    tuple val(meta), path("*gridss.vcf.gz.tbi"), emit: vcf_index, optional:true
-    tuple val(meta), path("*.assembly.bam"), emit: assembly, optional:true
-    tuple val(meta), path("*gridss.filtered.vcf.gz"), path("*gridss.filtered.vcf.gz.tbi"), emit: filtered_vcf
-    tuple val(meta), path("*gridss.filtered.vcf.gz.tbi"), emit: filtered_vcf_index, optional:true
+    tuple val(meta), path("*gridss.vcf.gz"), path("*gridss.vcf.gz.tbi"), emit: vcf
+    tuple val(meta), path("*gridss.vcf.gz.tbi"), emit: vcf_index
+    tuple val(meta), path("*.assembly.bam"), emit: assembly
     path "versions.yml", emit: versions
 
     when:
@@ -54,9 +52,6 @@ process GRIDSS_GRIDSS {
         ${normalbam} \\
         ${tumorbam}
 
-    bcftools view -f PASS ${prefix}.vcf.gz -Oz -o ${prefix}.filtered.vcf.gz
-    tabix -p vcf ${prefix}.filtered.vcf.gz
-
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         gridss: ${VERSION}
@@ -72,8 +67,6 @@ process GRIDSS_GRIDSS {
     touch ${prefix}.vcf.gz
     touch ${prefix}.vcf.gz.tbi
     touch ${meta.id}.assembly.bam
-    touch ${prefix}.filtered.vcf.gz
-    touch ${prefix}.filtered.vcf.gz.tbi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

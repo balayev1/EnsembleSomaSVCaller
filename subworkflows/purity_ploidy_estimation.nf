@@ -1,16 +1,18 @@
 //
 // Calling CNVs using a zero-shot approach with ASCAT, SEQUENZA, and FACETS.
-// External ACEseq outputs are validated through the manifest passed at launch time.
+// External ACEseq outputs are validated through the manifest passed at launch time,
+// then merged into a per-sample purity/ploidy consensus.
 //
 
 include { ASCAT }                  from '../modules/nf-core/ascat/main.nf'
 include { FACETS }                 from '../modules/local/facets/main.nf'
+include { PURITY_PLOIDY_MERGE }    from '../modules/local/purity_ploidy_merge/main.nf'
 include { SEQUENZAUTILS_GCWIGGLE } from '../modules/local/sequenza/main.nf'
 include { SEQUENZA_PREP }          from '../modules/local/sequenza/main.nf'
 include { SEQUENZA_MERGE }         from '../modules/local/sequenza/main.nf'
 include { SEQUENZA_RUN }           from '../modules/local/sequenza/main.nf'
 
-workflow ZERO_SHOT_CNV_CALL {
+workflow PURITY_PLOIDY_ESTIMATION {
     take:
         ch_samples
         fasta
@@ -23,6 +25,7 @@ workflow ZERO_SHOT_CNV_CALL {
         dbsnp
         dbsnp_tbi
         facets_annotation
+        aceseq_manifest_tsv
 
     main:
         versions = Channel.empty()
@@ -101,7 +104,29 @@ workflow ZERO_SHOT_CNV_CALL {
         )
         versions = versions.mix(FACETS.out.versions)
 
+        aceseq_ploidy_purity = aceseq_manifest_tsv
+            .splitCsv(header: true, sep: '\t')
+            .map { row ->
+                [row.sample_id.toString(), file(row.ploidy_purity_2d.toString(), checkIfExists: true)]
+            }
+
+        purity_ploidy_merge_input = ASCAT.out.purityploidy
+            .map { meta, ascat_file -> [meta.id, meta, ascat_file] }
+            .join(FACETS.out.vcf.map { meta, facets_vcf -> [meta.id, facets_vcf] })
+            .join(SEQUENZA_RUN.out.purity_ploidy_est.map { meta, sequenza_file -> [meta.id, sequenza_file] })
+            .join(aceseq_ploidy_purity)
+            .map { sample_id, meta, ascat_file, facets_vcf, sequenza_file, aceseq_file ->
+                [meta, ascat_file, facets_vcf, sequenza_file, aceseq_file]
+            }
+
+        PURITY_PLOIDY_MERGE(purity_ploidy_merge_input)
+        purity_ploidy_candidates = PURITY_PLOIDY_MERGE.out.candidates
+        purity_ploidy_consensus  = PURITY_PLOIDY_MERGE.out.consensus
+        versions                 = versions.mix(PURITY_PLOIDY_MERGE.out.versions)
+
     emit:
         ascat_purityploidy
+        purity_ploidy_candidates
+        purity_ploidy_consensus
         versions
 }
