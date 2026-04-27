@@ -128,7 +128,7 @@ export GUROBI_PATH
 
 ACESEQ_OUT_BASE="${ACESEQ_OUT_BASE:-${SOMASV_OUT_BASE%/}/ACESEQ_out}"
 ACESEQ_RUN_OUTDIR="${ACESEQ_OUT_BASE%/}/${RUN_ID}"
-SOMASV_RUN_OUTDIR="${SOMASV_OUT_BASE%/}/${RUN_ID}"
+SOMASV_RUN_OUTDIR="${SOMASV_OUT_BASE%/}/SOMASV_out/${RUN_ID}"
 HANDOFF_DIR="${ACESEQ_RUN_OUTDIR}/handoff"
 LAUNCH_ROOT="${SOMASV_OUT_BASE%/}/launches/${RUN_ID}"
 
@@ -137,11 +137,7 @@ mkdir -p \
     "${ACESEQ_RUN_OUTDIR}" \
     "${SOMASV_RUN_OUTDIR}" \
     "${HANDOFF_DIR}" \
-    "${LAUNCH_ROOT}/samplesheets" \
-    "${LAUNCH_ROOT}/aceseq" \
-    "${LAUNCH_ROOT}/somasv" \
-    "${LAUNCH_ROOT}/work/aceseq" \
-    "${LAUNCH_ROOT}/work/somasv"
+    "${LAUNCH_ROOT}/samplesheets"
 
 
 
@@ -174,8 +170,6 @@ echo
 
         mkdir -p \
             "$(dirname "${aceseq_manifest}")" \
-            "${aceseq_launch_dir}" \
-            "${somasv_launch_dir}" \
             "${aceseq_work_dir}" \
             "${somasv_work_dir}"
 

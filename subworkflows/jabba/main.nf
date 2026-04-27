@@ -12,6 +12,42 @@ include { COERCE_SEQNAMES as COERCE_SEQNAMES_JUNCTION } from '../../modules/loca
 include { COERCE_SEQNAMES as COERCE_SEQNAMES_HETS } from '../../modules/local/jabba/main.nf'
 include { RETIER_WHITELIST_JUNCTIONS } from '../../modules/local/jabba/main.nf'
 
+def readTsvRows(path, description) {
+    def lines = java.nio.file.Files.readAllLines(path).findAll { it?.trim() }
+    if (lines.size() < 2) {
+        throw new IllegalArgumentException("Invalid ${description}: ${path}")
+    }
+
+    def header = lines[0].split('\t', -1)
+    lines.tail().collect { line ->
+        def values = line.split('\t', -1)
+        def row = [:]
+        header.eachWithIndex { key, idx ->
+            row[key] = idx < values.size() ? values[idx] : ''
+        }
+        row
+    }
+}
+
+def hasConfiguredGuess(value) {
+    value != null && !(value.toString().trim() in ['', 'NA', 'NULL'])
+}
+
+def normalizeGuessArgs(value) {
+    def tokens = value.toString()
+        .trim()
+        .replaceAll(/^\[|\]$/, '')
+        .split(/[,\s]+/)
+        .findAll { it && !(it in ['NA', 'NULL']) }
+        .collect { new BigDecimal(it).stripTrailingZeros().toPlainString() }
+
+    if (!tokens) {
+        return 'NA'
+    }
+
+    tokens.join(',')
+}
+
 workflow JABBA_RUN {
     take:
     junctions
@@ -54,24 +90,26 @@ workflow JABBA_RUN {
     cbs_seg_by_id = cbs_seg_rds.map { meta, seg_file -> [meta.id, seg_file] }
     cbs_nseg_by_id = cbs_nseg_rds.map { meta, nseg_file -> [meta.id, nseg_file] }
 
-    purity_ploidy_values = purity_ploidy_consensus.map { meta, consensus_file ->
-        def lines = java.nio.file.Files.readAllLines(consensus_file).findAll { it?.trim() }
-        if (lines.size() < 2) {
-            error "Invalid purity/ploidy consensus file for ${meta.id}: ${consensus_file}"
+    purity_ploidy_values = purity_ploidy_consensus
+        .map { meta, consensus_file -> [meta.id, meta, consensus_file] }
+        .map { sample_id, meta, consensus_file ->
+            def consensusRows = readTsvRows(consensus_file, "purity/ploidy consensus file for ${meta.id}")
+            def row = consensusRows[0]
+
+            def purity = hasConfiguredGuess(params.purity_jabba)
+                ? normalizeGuessArgs(params.purity_jabba)
+                : ((row.status == 'consensus' && hasConfiguredGuess(row.purity))
+                    ? normalizeGuessArgs(row.purity)
+                    : 'NA')
+
+            def ploidy = hasConfiguredGuess(params.ploidy_jabba)
+                ? normalizeGuessArgs(params.ploidy_jabba)
+                : ((row.status == 'consensus' && hasConfiguredGuess(row.ploidy))
+                    ? normalizeGuessArgs(row.ploidy)
+                    : 'NA')
+
+            [meta.id, purity, ploidy]
         }
-
-        def header = lines[0].split('\t', -1)
-        def values = lines[1].split('\t', -1)
-        def row = [:]
-        header.eachWithIndex { key, idx ->
-            row[key] = idx < values.size() ? values[idx] : ''
-        }
-
-        def purity = (row.status == 'consensus' && row.purity && row.purity != 'NA') ? row.purity : (params.purity_jabba ?: 'NA')
-        def ploidy = (row.status == 'consensus' && row.ploidy && row.ploidy != 'NA') ? row.ploidy : (params.ploidy_jabba ?: 'NA')
-
-        [meta.id, purity, ploidy]
-    }
 
     jabba_inputs = coerced_junctions
         .join(coerced_cov_rds)
