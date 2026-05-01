@@ -25,31 +25,56 @@ PIPELINE_WORKDIR="${PIPELINE_WORKDIR:?PIPELINE_WORKDIR is required}"
 PIPELINE_LAUNCH_DIR="${PIPELINE_LAUNCH_DIR:?PIPELINE_LAUNCH_DIR is required}"
 ACESEQ_MANIFEST="${ACESEQ_MANIFEST:?ACESEQ_MANIFEST is required}"
 SOMASV_REPO="${SOMASV_REPO:?SOMASV_REPO is required}"
+PIPELINE_GUROBI_JABBA="${PIPELINE_GUROBI_JABBA:-FALSE}"
 PIPELINE_GUROBI_PATH="${PIPELINE_GUROBI_PATH:-}"
+PIPELINE_INFO_DIR="${PIPELINE_OUTDIR%/}/pipeline_info"
+WRAPPER_CONFIG="${PIPELINE_LAUNCH_DIR}/wrapper_pipeline_info.config"
 
-mkdir -p "${PIPELINE_LAUNCH_DIR}" "${PIPELINE_WORKDIR}"
+mkdir -p "${PIPELINE_LAUNCH_DIR}" "${PIPELINE_WORKDIR}" "${PIPELINE_INFO_DIR}"
 cd "${PIPELINE_LAUNCH_DIR}"
 
-echo "SomaSV Pipeline Started at $(date)"
+echo "EnsembleSomaSVCaller started at $(date)"
 
 python3 "${SOMASV_REPO}/bin/validate_aceseq_manifest.py" \
     --samplesheet "${PIPELINE_INPUT}" \
     --manifest "${ACESEQ_MANIFEST}"
 
+cat > "${WRAPPER_CONFIG}" <<EOF
+trace {
+    enabled = true
+    file = "${PIPELINE_INFO_DIR}/execution_trace_${PIPELINE_SAMPLE_ID}.txt"
+    overwrite = true
+}
+
+report {
+    enabled = true
+    file = "${PIPELINE_INFO_DIR}/execution_report_${PIPELINE_SAMPLE_ID}.html"
+    overwrite = true
+}
+
+timeline {
+    enabled = true
+    file = "${PIPELINE_INFO_DIR}/execution_timeline_${PIPELINE_SAMPLE_ID}.html"
+    overwrite = true
+}
+EOF
+
 nextflow_cmd=(
     nextflow run "${SOMASV_REPO}/main.nf"
     -profile singularity
+    -c "${WRAPPER_CONFIG}"
     --input "${PIPELINE_INPUT}"
     --outdir "${PIPELINE_OUTDIR}"
     --aceseq_manifest "${ACESEQ_MANIFEST}"
+    --gurobi_jabba "${PIPELINE_GUROBI_JABBA}"
     -work-dir "${PIPELINE_WORKDIR}"
     -resume
 )
 
-if [[ -n "${PIPELINE_GUROBI_PATH}" ]]; then
+if [[ "${PIPELINE_GUROBI_JABBA}" == "TRUE" && -n "${PIPELINE_GUROBI_PATH}" ]]; then
     nextflow_cmd+=( --gurobi_license_path "${PIPELINE_GUROBI_PATH}" )
 fi
 
 "${nextflow_cmd[@]}"
 
-echo "SomaSV Pipeline Finished at $(date)"
+echo "EnsembleSomaSVCaller finished at $(date)"

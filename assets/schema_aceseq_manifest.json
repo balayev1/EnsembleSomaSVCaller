@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EnsembleSomaSVCaller ACEseq manifest",
+  "type": "array",
+  "uniqueEntries": [
+    "sample_id"
+  ],
+  "items": {
+    "type": "object",
+    "required": [
+      "sample_id",
+      "aceseq_dir",
+      "cnv_tab",
+      "snp_tab",
+      "pscbs_data",
+      "sex_file",
+      "clustered_and_pruned_and_normal",
+      "ploidy_purity_2d",
+      "breakpoints2",
+      "known_segments"
+    ],
+    "properties": {
+      "sample_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Sample identifier matching the main SomaSV samplesheet."
+      },
+      "aceseq_dir": {
+        "type": "string",
+        "format": "directory-path",
+        "exists": true,
+        "description": "ACEseq sample output directory."
+      },
+      "cnv_tab": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq CNV table."
+      },
+      "snp_tab": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq SNP table."
+      },
+      "pscbs_data": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq PSCBS data file."
+      },
+      "sex_file": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq inferred sex file."
+      },
+      "clustered_and_pruned_and_normal": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq clustered/pruned/normal file."
+      },
+      "ploidy_purity_2d": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq ploidy/purity 2D solution file."
+      },
+      "breakpoints2": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq breakpoints2 file."
+      },
+      "known_segments": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "ACEseq knownSegments file."
+      }
+    }
+  }
+}

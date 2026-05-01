@@ -100,7 +100,13 @@ process DRYCLEAN {
     stub:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def VERSION = '0.0.3'
     """
     touch drycleaned.cov.rds
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        dryclean: ${VERSION}
+    END_VERSIONS
     """
 }

@@ -12,6 +12,34 @@ include { SEQUENZA_PREP }          from '../modules/local/sequenza/main.nf'
 include { SEQUENZA_MERGE }         from '../modules/local/sequenza/main.nf'
 include { SEQUENZA_RUN }           from '../modules/local/sequenza/main.nf'
 
+def readTsvRows(path) {
+    def lines = java.nio.file.Files.readAllLines(path).findAll { it?.trim() }
+    if (lines.size() < 2) {
+        return []
+    }
+
+    def header = lines[0].split('\t', -1)
+    lines.tail().collect { line ->
+        def values = line.split('\t', -1)
+        def row = [:]
+        header.eachWithIndex { key, idx ->
+            row[key] = idx < values.size() ? values[idx] : ''
+        }
+        row
+    }
+}
+
+def resolveManifestPath(value, baseDir) {
+    def raw = value?.toString()?.trim()
+    if (!raw) {
+        return null
+    }
+
+    def candidate = java.nio.file.Paths.get(raw)
+    def resolved = candidate.isAbsolute() ? candidate : baseDir.resolve(candidate).normalize()
+    file(resolved.toString(), checkIfExists: true)
+}
+
 workflow PURITY_PLOIDY_ESTIMATION {
     take:
         ch_samples
@@ -105,9 +133,14 @@ workflow PURITY_PLOIDY_ESTIMATION {
         versions = versions.mix(FACETS.out.versions)
 
         aceseq_ploidy_purity = aceseq_manifest_tsv
-            .splitCsv(header: true, sep: '\t')
-            .map { row ->
-                [row.sample_id.toString(), file(row.ploidy_purity_2d.toString(), checkIfExists: true)]
+            .flatMap { manifest_path ->
+                def manifest_base_dir = manifest_path.parent
+                readTsvRows(manifest_path).collect { row ->
+                    [
+                        row.sample_id.toString(),
+                        resolveManifestPath(row.ploidy_purity_2d.toString(), manifest_base_dir)
+                    ]
+                }
             }
 
         purity_ploidy_merge_input = ASCAT.out.purityploidy

@@ -21,4 +21,9 @@ process VALIDATE_ACESEQ_MANIFEST {
 
     touch validated.ok
     """
+
+    stub:
+    """
+    touch validated.ok
+    """
 }

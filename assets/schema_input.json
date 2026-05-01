@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EnsembleSomaSVCaller input samplesheet",
+  "type": "array",
+  "uniqueEntries": [
+    "sample"
+  ],
+  "items": {
+    "type": "object",
+    "required": [
+      "sample",
+      "sex",
+      "control",
+      "control_index",
+      "tumor",
+      "tumor_index"
+    ],
+    "properties": {
+      "sample": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Sample identifier shared with the ACEseq manifest."
+      },
+      "sex": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Sample sex annotation used by downstream purity/ploidy tools."
+      },
+      "control": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "Path to the matched normal BAM."
+      },
+      "control_index": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "Path to the matched normal BAM index."
+      },
+      "tumor": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "Path to the tumor BAM."
+      },
+      "tumor_index": {
+        "type": "string",
+        "format": "file-path",
+        "exists": true,
+        "description": "Path to the tumor BAM index."
+      },
+      "sv": {
+        "type": "string",
+        "description": "Optional structural variant type annotation."
+      }
+    }
+  }
+}

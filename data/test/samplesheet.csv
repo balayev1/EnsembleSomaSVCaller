@@ -1,0 +1,2 @@
+sample,sex,sv,tumor,tumor_index,control,control_index
+TEST_SAMPLE,male,,bams/TEST_SAMPLE_tumor.bam,bams/TEST_SAMPLE_tumor.bam.bai,bams/TEST_SAMPLE_normal.bam,bams/TEST_SAMPLE_normal.bam.bai

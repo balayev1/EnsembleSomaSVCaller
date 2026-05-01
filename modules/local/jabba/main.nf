@@ -59,17 +59,52 @@ process JABBA {
     def j_supp_arg = j_supp == '/dev/null' || j_supp == 'NA' || j_supp == 'NULL' ? "" : "--j.supp ${j_supp}"
     def blacklist_junctions_arg = blacklist_junctions == '/dev/null' || blacklist_junctions == 'NA' || blacklist_junctions == 'NULL' ? "" : "--blacklist.junctions ${blacklist_junctions}"
     def blacklist_coverage_arg = blacklist_coverage == '/dev/null' || blacklist_coverage == 'NA' || blacklist_coverage == 'NULL' ? "" : "--blacklist.coverage ${blacklist_coverage}"
+    def gurobi_arg = gurobi in [true, 'TRUE'] ? 'TRUE' : 'FALSE'
     def trelim_mem = (task.memory.toGiga() * 0.80).toInteger()
     def gurobi_license_export = gurobi_license_path == '/dev/null' || gurobi_license_path == 'NA' || gurobi_license_path == 'NULL' ? '' : "export GRB_LICENSE_FILE=\"${gurobi_license_path}\""
+    def gurobi_home_value = params.gurobi_home ?: ''
+    def cplex_dir_value = params.cplex_dir ?: ''
 
     """
     unset R_HOME
     ${gurobi_license_export}
 
+    if [[ "${gurobi_arg}" == "TRUE" && -z "\${GUROBI_HOME:-}" && -n "${gurobi_home_value}" ]]; then
+        export GUROBI_HOME="${gurobi_home_value}"
+    fi
+    if [[ "${gurobi_arg}" == "FALSE" && -z "\${CPLEXDIR:-}" && -n "${cplex_dir_value}" ]]; then
+        export CPLEXDIR="${cplex_dir_value}"
+    fi
+
+    if [[ "${gurobi_arg}" == "TRUE" && -z "\${GUROBI_HOME:-}" ]]; then
+        echo "ERROR: GUROBI_HOME must be defined when --gurobi TRUE. Define it in the runtime environment, nextflow.config, or master_somasv.sh." >&2
+        exit 1
+    fi
+    if [[ "${gurobi_arg}" == "FALSE" && -z "\${CPLEXDIR:-}" ]]; then
+        echo "ERROR: CPLEXDIR must be defined when --gurobi FALSE. Define it in the runtime environment, nextflow.config, or master_somasv.sh." >&2
+        exit 1
+    fi
+
+    if [[ -n "\${GUROBI_HOME:-}" ]]; then
+        export PATH="\${GUROBI_HOME}/bin:\${PATH}"
+        export LD_LIBRARY_PATH="\${GUROBI_HOME}/lib:\${LD_LIBRARY_PATH:-}"
+    fi
+    if [[ -n "\${CPLEXDIR:-}" ]]; then
+        # Mirror to the legacy variable name for downstream tools that still read CPLEX_DIR.
+        export CPLEX_DIR="\${CPLEXDIR}"
+        export LD_LIBRARY_PATH="\${CPLEXDIR}/cplex/lib/x86-64_linux/static_pic:\${LD_LIBRARY_PATH:-}"
+    fi
+
     jabPath=\$(Rscript -e 'cat(suppressWarnings(find.package("JaBbA")))')
     jba="\${jabPath}/extdata/jba"
 
     echo "Using JaBbA launcher: \$jba"
+    if [[ -n "\${GUROBI_HOME:-}" ]]; then
+        echo "Using GUROBI_HOME: \$GUROBI_HOME"
+    fi
+    if [[ -n "\${CPLEXDIR:-}" ]]; then
+        echo "Using CPLEXDIR: \$CPLEXDIR"
+    fi
     if [[ -n "\${GRB_LICENSE_FILE:-}" ]]; then
         echo "Using Gurobi license file: \$GRB_LICENSE_FILE"
     fi
@@ -109,7 +144,7 @@ process JABBA {
         --lp ${lp} \\
         --ism ${ism} \\
         --filter_loose ${filter_loose} \\
-        --gurobi ${gurobi} \\
+        --gurobi ${gurobi_arg} \\
         --mem ${trelim_mem} \\
         ${verbose_switch}
 
@@ -179,6 +214,11 @@ process COERCE_SEQNAMES {
         data[[1]] <- gsub("chr","",data[[1]])
         write.table(data, file = outputfn, sep = "\\t", row.names = F, quote = F)
     }
+    """
+
+    stub:
+    """
+    touch coerced_chr_${file.name}
     """
 }
 

@@ -49,15 +49,23 @@ def load_manifest(path: Path):
     return manifest
 
 
-def validate_paths(sample_id: str, row: dict):
+def resolve_path(value: str, base_dir: Path) -> Path:
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate
+    return (base_dir / candidate).resolve()
+
+
+def validate_paths(sample_id: str, row: dict, manifest_dir: Path):
     missing = []
     for column in REQUIRED_COLUMNS[1:]:
         value = row.get(column, "").strip()
         if not value:
             missing.append(f"{column} is empty")
             continue
-        if not Path(value).exists():
-            missing.append(f"{column} missing: {value}")
+        resolved = resolve_path(value, manifest_dir)
+        if not resolved.exists():
+            missing.append(f"{column} missing: {resolved}")
     if missing:
         raise FileNotFoundError(
             f"Sample {sample_id} has invalid ACEseq artifacts:\n  - " + "\n  - ".join(missing)
@@ -88,7 +96,7 @@ def main() -> int:
         return 1
 
     for sample in samples:
-        validate_paths(sample, manifest[sample])
+        validate_paths(sample, manifest[sample], manifest_path.parent)
 
     print(
         f"Validated ACEseq manifest {manifest_path} for {len(samples)} sample(s) from {samplesheet}"

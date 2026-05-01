@@ -1,0 +1,2 @@
+sample_id	aceseq_dir	cnv_tab	snp_tab	pscbs_data	sex_file	clustered_and_pruned_and_normal	ploidy_purity_2d	breakpoints2	known_segments
+TEST_SAMPLE	aceseq/TEST_SAMPLE	refs/placeholder.txt	refs/placeholder.txt	refs/placeholder.txt	refs/placeholder.txt	refs/placeholder.txt	refs/placeholder.txt	refs/placeholder.txt	refs/placeholder.txt

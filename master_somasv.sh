@@ -13,6 +13,9 @@ Usage:
     --somasv-out-base /path/to/SomaticSV_outs \
     --samplesheet /path/to/samplesheet.csv \
     [--run-id RUN_ID] \
+    [--gurobi-home /path/to/gurobi] \
+    [--cplex-dir /path/to/cplex] \
+    [--gurobi-jabba TRUE|FALSE] \
     [--gurobi-path /path/to/gurobi.lic]
 
 Required:
@@ -23,6 +26,9 @@ Required:
 
 Optional:
   --run-id
+  --gurobi-home
+  --cplex-dir
+  --gurobi-jabba
   --gurobi-path
 
 Legacy positional form is still accepted:
@@ -35,6 +41,9 @@ ACESEQ_REPO="${ACESEQ_REPO:-}"
 SOMASV_OUT_BASE="${SOMASV_OUT_BASE:-}"
 SAMPLESHEET="${SAMPLESHEET:-}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
+GUROBI_HOME="${GUROBI_HOME:-}"
+CPLEXDIR="${CPLEXDIR:-}"
+GUROBI_JABBA="${GUROBI_JABBA:-FALSE}"
 GUROBI_PATH="${GUROBI_PATH:-}"
 
 POSITIONAL=()
@@ -58,6 +67,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --run-id)
             RUN_ID="$2"
+            shift 2
+            ;;
+        --gurobi-home)
+            GUROBI_HOME="$2"
+            shift 2
+            ;;
+        --cplex-dir)
+            CPLEXDIR="$2"
+            shift 2
+            ;;
+        --gurobi-jabba)
+            GUROBI_JABBA="$(printf '%s' "$2" | tr '[:lower:]' '[:upper:]')"
             shift 2
             ;;
         --gurobi-path)
@@ -113,17 +134,29 @@ if [[ ! -f "${SAMPLESHEET}" ]]; then
     exit 1
 fi
 
-if [[ -z "${GUROBI_PATH}" ]]; then
-    GUROBI_PATH="${SOMASV_REPO%/}/assets/gurobi.lic"
-fi
-if [[ ! -f "${GUROBI_PATH}" ]]; then
-    echo "Gurobi license not found: ${GUROBI_PATH}" >&2
+if [[ "${GUROBI_JABBA}" != "TRUE" && "${GUROBI_JABBA}" != "FALSE" ]]; then
+    echo "GUROBI_JABBA must be TRUE or FALSE, got: ${GUROBI_JABBA}" >&2
     exit 1
+fi
+
+if [[ "${GUROBI_JABBA}" == "TRUE" ]]; then
+    if [[ -z "${GUROBI_PATH}" ]]; then
+        GUROBI_PATH="${SOMASV_REPO%/}/assets/gurobi.lic"
+    fi
+    if [[ ! -f "${GUROBI_PATH}" ]]; then
+        echo "Gurobi license not found: ${GUROBI_PATH}" >&2
+        exit 1
+    fi
+else
+    GUROBI_PATH=""
 fi
 
 export SOMASV_REPO
 export ACESEQ_REPO
 export SOMASV_OUT_BASE
+export GUROBI_HOME
+export CPLEXDIR
+export GUROBI_JABBA
 export GUROBI_PATH
 
 ACESEQ_OUT_BASE="${ACESEQ_OUT_BASE:-${SOMASV_OUT_BASE%/}/ACESEQ_out}"
@@ -146,8 +179,17 @@ cd "${SOMASV_REPO}"
 echo "Run ID: ${RUN_ID}"
 echo "Samplesheet: ${SAMPLESHEET}"
 echo "ACEseq outdir: ${ACESEQ_RUN_OUTDIR}"
-echo "SomaSV outdir: ${SOMASV_RUN_OUTDIR}"
-echo "Gurobi license: ${GUROBI_PATH}"
+echo "EnsembleSomaSVCaller outdir: ${SOMASV_RUN_OUTDIR}"
+echo "JaBbA Gurobi enabled: ${GUROBI_JABBA}"
+if [[ -n "${GUROBI_HOME}" ]]; then
+    echo "GUROBI_HOME: ${GUROBI_HOME}"
+fi
+if [[ -n "${CPLEXDIR}" ]]; then
+    echo "CPLEXDIR: ${CPLEXDIR}"
+fi
+if [[ "${GUROBI_JABBA}" == "TRUE" ]]; then
+    echo "Gurobi license: ${GUROBI_PATH}"
+fi
 echo "Launch root: ${LAUNCH_ROOT}"
 echo
 
@@ -187,11 +229,11 @@ echo
         SOMASV_JOB=$(
             sbatch --parsable \
                 --dependency=afterok:${ACESEQ_JOB} \
-                --export=ALL,SOMASV_REPO="${SOMASV_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${SOMASV_RUN_OUTDIR}",PIPELINE_WORKDIR="${somasv_work_dir}",PIPELINE_LAUNCH_DIR="${somasv_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}",PIPELINE_GUROBI_PATH="${GUROBI_PATH}" \
+                --export=ALL,SOMASV_REPO="${SOMASV_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${SOMASV_RUN_OUTDIR}",PIPELINE_WORKDIR="${somasv_work_dir}",PIPELINE_LAUNCH_DIR="${somasv_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}",PIPELINE_GUROBI_JABBA="${GUROBI_JABBA}",PIPELINE_GUROBI_PATH="${GUROBI_PATH}" \
                 "${SOMASV_REPO}/slurm/nf_somasv.sbatch"
         )
 
-        printf 'Sample %-20s ACEseq job %-12s SomaSV job %-12s Manifest %s\n' \
+        printf 'Sample %-20s ACEseq job %-12s EnsembleSomaSVCaller job %-12s Manifest %s\n' \
             "${sample}" "${ACESEQ_JOB}" "${SOMASV_JOB}" "${aceseq_manifest}"
     done
 } < "${SAMPLESHEET}"

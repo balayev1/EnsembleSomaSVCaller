@@ -120,4 +120,9 @@ process REBIN_RAW_FRAGCOUNTER {
     saveRDS(rebinned_cov, outputfn)
 
     """
+
+    stub:
+    """
+    touch 1kb_${cov_raw.name}
+    """
 }

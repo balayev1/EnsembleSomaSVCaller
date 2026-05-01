@@ -34,8 +34,10 @@ process SURVIVOR_MERGE {
     }
 
     """
+    printf '%s\n' ${vcfs.join(' ')} > survivor_vcf_list.txt
+
     SURVIVOR merge \\
-        <(ls *.vcf) \\
+        survivor_vcf_list.txt \\
         ${max_distance_breakpoints} \\
         ${min_supporting_callers} \\
         ${account_for_type} \\

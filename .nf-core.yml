@@ -1,0 +1,13 @@
+lint:
+  # This repository is a custom research pipeline and does not ship the
+  # full nf-core template CI / cloud test matrix.
+  actions_awstest: false
+  actions_awsfulltest: false
+  actions_ci: false
+  actions_nf_test: false
+
+  # Keep lint useful for the custom codebase without requiring every
+  # nf-core template file and README convention.
+  files_exist: false
+  pipeline_name_conventions: false
+  readme: false

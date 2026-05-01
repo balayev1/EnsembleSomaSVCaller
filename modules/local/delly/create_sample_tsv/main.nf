@@ -19,4 +19,12 @@ process CREATE_DELLY_SAMPLES_TSV {
 
     awk 'NR==1{print \$0"\ttumor"} NR==2{print \$0"\tcontrol"} END{if (NR != 2) {print "Expected exactly 2 DELLY samples, found " NR > "/dev/stderr"; exit 1}}' delly_samples.list > ${meta.id}_delly_samples.tsv
     """
+
+    stub:
+    """
+    cat <<-EOF > ${meta.id}_delly_samples.tsv
+    ${meta.id}_tumor	tumor
+    ${meta.id}_normal	control
+    EOF
+    """
 }

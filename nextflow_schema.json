@@ -1,0 +1,879 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/balayev1/EnsembleSomaSVCaller/main/nextflow_schema.json",
+  "title": "balayev1/EnsembleSomaSVCaller pipeline parameters",
+  "description": "Primary user-facing parameters for the EnsembleSomaSVCaller Nextflow pipeline. Genome-bundle-derived reference overrides may still be supplied in custom configs even if they are not all enumerated here.",
+  "type": "object",
+  "additionalProperties": true,
+  "$defs": {
+    "input_output_options": {
+      "title": "Input and Output Options",
+      "type": "object",
+      "fa_icon": "fas fa-file-import",
+      "description": "Mandatory pipeline inputs and top-level output locations.",
+      "required": [
+        "input",
+        "aceseq_manifest"
+      ],
+      "properties": {
+        "input": {
+          "type": "string",
+          "format": "file-path",
+          "default": "/projects/standard/aventeic/balay011/scripts/SomaCNV_chordbai.csv",
+          "exists": true,
+          "mimetype": "text/csv",
+          "pattern": "^\\S+\\.csv$",
+          "schema": "assets/schema_input.json",
+          "description": "Path to the SomaSV samplesheet CSV.",
+          "help_text": "Required columns: sample, sex, control, control_index, tumor, tumor_index. Optional column: sv."
+        },
+        "aceseq_manifest": {
+          "type": "string",
+          "format": "file-path",
+          "exists": true,
+          "mimetype": "text/tab-separated-values",
+          "pattern": "^\\S+\\.(tsv|txt)$",
+          "schema": "assets/schema_aceseq_manifest.json",
+          "description": "Path to the ACEseq manifest TSV validated against the samplesheet.",
+          "help_text": "Required columns: sample_id, aceseq_dir, cnv_tab, snp_tab, pscbs_data, sex_file, clustered_and_pruned_and_normal, ploidy_purity_2d, breakpoints2, known_segments."
+        },
+        "somasv_out_base": {
+          "type": "string",
+          "format": "directory-path",
+          "default": "/scratch.global/venteicher_30050/balay011/SomaticSV_outs",
+          "description": "Base directory for published pipeline outputs and launch artifacts."
+        },
+        "outdir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Nextflow output directory used for reports and published results. Defaults to somasv_out_base in nextflow.config."
+        },
+        "publish_dir_mode": {
+          "type": "string",
+          "default": "copy",
+          "description": "Nextflow publishDir mode used when final outputs are published."
+        }
+      }
+    },
+    "reference_options": {
+      "title": "Reference and Resource Options",
+      "type": "object",
+      "fa_icon": "fas fa-dna",
+      "description": "Reference bundle selection and a small number of commonly overridden resource paths.",
+      "properties": {
+        "genome": {
+          "type": "string",
+          "default": "GRCh38",
+          "description": "Genome key used to resolve bundled references from params.genomes."
+        },
+        "igenomes_base": {
+          "type": "string",
+          "format": "directory-path",
+          "default": "/projects/standard/aventeic/balay011/references",
+          "description": "Base directory containing genome-specific resource bundles."
+        },
+        "igenomes_ignore": {
+          "type": "boolean",
+          "default": false,
+          "description": "Ignore iGenomes-style reference resolution and rely on explicit parameter overrides where available."
+        },
+        "dbsnp_chr_prefix_rename": {
+          "type": "string",
+          "format": "file-path",
+          "exists": true,
+          "default": "${projectDir}/assets/dbsnp_chr_prefix_rename.tsv",
+          "description": "Tab-delimited contig rename table used to add chr prefixes to dbSNP before downstream steps."
+        },
+        "facets_annotation_bed": {
+          "type": "string",
+          "format": "file-path",
+          "exists": true,
+          "description": "Optional BED annotation file supplied to FACETS."
+        },
+        "gurobi_license_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "NA",
+                "NULL",
+                "/dev/null"
+              ]
+            },
+            {
+              "type": "string",
+              "format": "file-path",
+              "exists": true
+            }
+          ],
+          "default": "${projectDir}/assets/gurobi.lic",
+          "description": "Optional path to the Gurobi license file used by JaBbA when gurobi_jabba is TRUE."
+        }
+      }
+    },
+    "purity_ploidy_estimation_options": {
+      "title": "Purity and Ploidy Estimation Options",
+      "type": "object",
+      "fa_icon": "fas fa-chart-line",
+      "description": "Parameters for ASCAT, Sequenza-utils, Sequenza, and FACETS preprocessing.",
+      "properties": {
+        "ascat_min_counts": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "description": "Minimum allele counts retained by ASCAT."
+        },
+        "ascat_min_basequal": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "description": "Minimum base quality for ASCAT alleles."
+        },
+        "ascat_min_mapqual": {
+          "type": "integer",
+          "default": 35,
+          "minimum": 0,
+          "description": "Minimum mapping quality for ASCAT alleles."
+        },
+        "windowsize_sequtils": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 1,
+          "description": "Window size used by sequenza-utils gc_wiggle."
+        },
+        "hom_sequtils": {
+          "type": "number",
+          "default": 0.9,
+          "description": "Sequenza-utils homozygous threshold."
+        },
+        "het_sequtils": {
+          "type": "number",
+          "default": 0.25,
+          "description": "Sequenza-utils heterozygous threshold."
+        },
+        "het_f_sequtils": {
+          "type": "number",
+          "default": -0.02,
+          "description": "Sequenza-utils heterozygous frequency adjustment."
+        },
+        "qlimit_sequtils": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "description": "Sequenza-utils quality threshold."
+        },
+        "qformat_sequtils": {
+          "type": "string",
+          "default": "sanger",
+          "description": "Sequenza-utils quality score format."
+        },
+        "rd_thr_sequtils": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "description": "Sequenza-utils read-depth threshold."
+        },
+        "seqz_bin_size_sequtils": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 1,
+          "description": "Bin size used when generating seqz output."
+        },
+        "sequenza_rd_thr_tumor": {
+          "type": "integer",
+          "default": 40,
+          "minimum": 0,
+          "description": "Minimum tumor read depth used by Sequenza."
+        },
+        "sequenza_rd_thr_normal": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 0,
+          "description": "Minimum normal read depth used by Sequenza."
+        },
+        "sequenza_purity_range": {
+          "type": "string",
+          "default": "0.1-1",
+          "pattern": "^[-+]?(?:\\d+\\.?\\d*|\\d*\\.\\d+)-[-+]?(?:\\d+\\.?\\d*|\\d*\\.\\d+)$",
+          "description": "Purity search range passed to Sequenza, formatted as min-max."
+        },
+        "sequenza_ploidy_range": {
+          "type": "string",
+          "default": "1-7",
+          "pattern": "^[-+]?(?:\\d+\\.?\\d*|\\d*\\.\\d+)-[-+]?(?:\\d+\\.?\\d*|\\d*\\.\\d+)$",
+          "description": "Ploidy search range passed to Sequenza, formatted as min-max."
+        },
+        "facets_mapq": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "description": "Minimum mapping quality for FACETS counting."
+        },
+        "facets_baq": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "description": "Minimum base quality for FACETS counting."
+        },
+        "facets_mindepth": {
+          "type": "integer",
+          "default": 25,
+          "minimum": 0,
+          "description": "Minimum read depth retained by FACETS."
+        },
+        "facets_maxdepth": {
+          "type": "integer",
+          "default": 4000,
+          "minimum": 0,
+          "description": "Maximum read depth retained by FACETS."
+        },
+        "facets_cval_pre": {
+          "type": "integer",
+          "default": 25,
+          "minimum": 0,
+          "description": "FACETS cval setting for pre-processing."
+        },
+        "facets_cval_proc": {
+          "type": "integer",
+          "default": 400,
+          "minimum": 0,
+          "description": "FACETS cval setting for procSample."
+        },
+        "facets_nbhd_snp": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "auto"
+              ]
+            },
+            {
+              "type": "integer",
+              "minimum": 1
+            }
+          ],
+          "default": "auto",
+          "description": "FACETS neighborhood SNP setting."
+        },
+        "facets_count_orphans": {
+          "type": "boolean",
+          "default": false,
+          "description": "Count orphan reads in FACETS."
+        },
+        "facets_unmatched": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow unmatched tumor/normal handling in FACETS."
+        },
+        "facets_no_cov_plot": {
+          "type": "boolean",
+          "default": false,
+          "description": "Disable FACETS coverage plot generation."
+        }
+      }
+    },
+    "breakpoint_calling_options": {
+      "title": "Breakpoint Calling Options",
+      "type": "object",
+      "fa_icon": "fas fa-project-diagram",
+      "description": "Parameters controlling DELLY, SVABA, SURVIVOR, and BRASS behavior.",
+      "properties": {
+        "delly_min_mapqual": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "description": "Minimum DELLY mapping quality."
+        },
+        "delly_mode": {
+          "type": "string",
+          "default": "somatic",
+          "description": "DELLY filtering mode."
+        },
+        "delly_min_svqual": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 0,
+          "description": "Minimum DELLY SV quality."
+        },
+        "delly_altaf": {
+          "type": "number",
+          "default": 0.3,
+          "description": "Minimum DELLY alternate allele fraction."
+        },
+        "delly_min_svsize": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": "0",
+          "description": "Minimum DELLY structural variant size."
+        },
+        "delly_max_svsize": {
+          "type": "integer",
+          "default": 500000000,
+          "minimum": 0,
+          "description": "Maximum DELLY structural variant size."
+        },
+        "delly_ratio_geno": {
+          "type": "number",
+          "default": 0.75,
+          "description": "DELLY genotype ratio threshold."
+        },
+        "delly_pass": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require DELLY PASS records only."
+        },
+        "delly_tags": {
+          "type": "boolean",
+          "default": false,
+          "description": "Retain DELLY tags in the filtered output."
+        },
+        "delly_cov": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 0,
+          "description": "DELLY coverage threshold."
+        },
+        "delly_ctrl_contamination": {
+          "type": "number",
+          "default": 0,
+          "description": "Expected control contamination for DELLY filtering."
+        },
+        "delly_geno_qual": {
+          "type": "integer",
+          "default": 15,
+          "minimum": 0,
+          "description": "Minimum DELLY genotype quality."
+        },
+        "delly_rddel": {
+          "type": "number",
+          "default": 0.8,
+          "description": "DELLY deletion read-depth ratio threshold."
+        },
+        "delly_rddup": {
+          "type": "number",
+          "default": 1.2,
+          "description": "DELLY duplication read-depth ratio threshold."
+        },
+        "svaba_error_rate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": "0",
+          "description": "SVABA error rate override."
+        },
+        "survivor_max_distance_breakpoints": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 0,
+          "description": "Maximum breakpoint distance used for SURVIVOR merging."
+        },
+        "survivor_min_supporting_callers": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "description": "Minimum supporting callers required by SURVIVOR."
+        },
+        "survivor_account_for_type": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "Whether SURVIVOR merge considers SV type."
+        },
+        "survivor_account_for_sv_strands": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 0,
+          "description": "Whether SURVIVOR merge considers SV strand orientation."
+        },
+        "survivor_estimate_distanced_by_sv_size": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "Whether SURVIVOR scales merge distance by SV size."
+        },
+        "survivor_min_sv_size": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 0,
+          "description": "Minimum SV size considered during SURVIVOR merging."
+        },
+        "brass_protocol": {
+          "type": "string",
+          "default": "WGS",
+          "description": "BRASS assay protocol identifier."
+        },
+        "brass_minreads": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 0,
+          "description": "Minimum supporting reads for BRASS calls."
+        },
+        "brass_mincn": {
+          "type": "number",
+          "default": 0.3,
+          "description": "Minimum copy-number support for BRASS calls."
+        }
+      }
+    },
+    "coverage_and_qc_options": {
+      "title": "Coverage and QC Options",
+      "type": "object",
+      "fa_icon": "fas fa-layer-group",
+      "description": "Parameters for HetPileups, fragCounter, dryclean, and CBS segmentation. Several wrapped tools expect uppercase TRUE/FALSE strings rather than JSON booleans, so those parameters are intentionally typed as strings here.",
+      "properties": {
+        "filter_hets": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Filter heterozygous pileup output to candidate sites only."
+        },
+        "max_depth_hets": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 1,
+          "description": "Maximum read depth retained for heterozygous pileups."
+        },
+        "midpoint_frag": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Use fragment midpoints in fragCounter."
+        },
+        "windowsize_frag": {
+          "type": "integer",
+          "default": 200,
+          "minimum": 1,
+          "description": "fragCounter window size."
+        },
+        "minmapq_frag": {
+          "type": "integer",
+          "default": 60,
+          "minimum": 0,
+          "description": "Minimum mapping quality for fragCounter."
+        },
+        "paired_frag": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Require paired-end fragments in fragCounter."
+        },
+        "exome_frag": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Run fragCounter in exome mode."
+        },
+        "center_dryclean": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Center dryclean coverage values."
+        },
+        "cbs_dryclean": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Enable CBS within dryclean."
+        },
+        "cnsignif_dryclean": {
+          "type": "number",
+          "default": 1e-05,
+          "description": "CBS significance threshold used by dryclean."
+        },
+        "wholeGenome_dryclean": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Use dryclean whole-genome behavior."
+        },
+        "blacklist_dryclean": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Enable dryclean blacklist filtering."
+        },
+        "blacklist_path_dryclean": {
+          "type": "string",
+          "default": "NA",
+          "description": "Path to a dryclean blacklist file, or the sentinel value NA."
+        },
+        "germline_filter_dryclean": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Enable dryclean germline filtering."
+        },
+        "germline_file_dryclean": {
+          "type": "string",
+          "default": "NA",
+          "description": "Path to the dryclean germline reference file, or the sentinel value NA."
+        },
+        "field_dryclean": {
+          "type": "string",
+          "default": "reads",
+          "description": "Coverage metadata field emitted by dryclean."
+        },
+        "cnsignif_cbs": {
+          "type": "number",
+          "default": 1e-05,
+          "description": "CBS significance threshold used in the JaBbA segmentation pre-step."
+        },
+        "field_cbs": {
+          "type": "string",
+          "default": "foreground",
+          "description": "Coverage field used for CBS segmentation."
+        },
+        "name_cbs": {
+          "type": "string",
+          "description": "Optional sample name override for CBS output naming."
+        }
+      }
+    },
+    "jabba_options": {
+      "title": "JaBbA Options",
+      "type": "object",
+      "fa_icon": "fas fa-bezier-curve",
+      "description": "Parameters passed to the JaBbA wrapper. As above, several wrapped CLI flags use uppercase TRUE/FALSE strings. The current JaBbA runtime in this pipeline supports sequenza and ppgrid for internal purity/ploidy estimation; ppurple is intentionally excluded here.",
+      "properties": {
+        "is_retier_whitelist_junctions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Retier junctions using the JaBbA gene whitelist before model fitting."
+        },
+        "whitelist_genes_jabba": {
+          "type": "string",
+          "default": "NULL",
+          "description": "Path to a JaBbA whitelist gene file, or NULL if not used.",
+          "help_text": "Required when is_retier_whitelist_junctions is true."
+        },
+        "blacklist_junctions_jabba": {
+          "type": "string",
+          "default": "NULL",
+          "description": "Path to a junction blacklist file, or NULL if not used."
+        },
+        "blacklist_coverage_jabba": {
+          "type": "string",
+          "default": "NULL",
+          "description": "Path to a coverage blacklist file, or NULL if not used."
+        },
+        "geno_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Indicate that input junctions include genotype information."
+        },
+        "indel_jabba": {
+          "type": "string",
+          "enum": [
+            "exclude",
+            "include"
+          ],
+          "default": "exclude",
+          "description": "How JaBbA should treat small isolated INDEL-like events."
+        },
+        "tfield_jabba": {
+          "type": "string",
+          "default": "TIER",
+          "description": "Metadata field storing JaBbA tier information on junctions."
+        },
+        "iter_jabba": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 0,
+          "description": "Maximum number of extra JaBbA rescue iterations."
+        },
+        "rescue_window_jabba": {
+          "type": "integer",
+          "default": 10000,
+          "minimum": 0,
+          "description": "Loose-end rescue window size in base pairs."
+        },
+        "rescue_all_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Attempt to rescue all loose ends irrespective of internal filters."
+        },
+        "nudgebalanced_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Encourage balanced quasi-reciprocal junction incorporation."
+        },
+        "edgenudge_jabba": {
+          "type": "number",
+          "default": 0.1,
+          "description": "Edge nudge magnitude passed to JaBbA."
+        },
+        "strict_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Restrict JaBbA to junctions that exactly overlap segment boundaries."
+        },
+        "allin_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Place all tiers into the first JaBbA iteration."
+        },
+        "field_jabba": {
+          "type": "string",
+          "default": "ratio",
+          "description": "Coverage metadata field used by JaBbA."
+        },
+        "maxna_jabba": {
+          "type": "number",
+          "default": 0.9,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Maximum allowed fraction of NA bins per JaBbA node."
+        },
+        "ploidy_jabba": {
+          "type": "string",
+          "default": "NA",
+          "pattern": "^(NA|NULL|[-+]?(?:\\d+\\.?\\d*|\\d*\\.\\d+)(?:[eE][-+]?\\d+)?)$",
+          "description": "Optional single-value JaBbA ploidy override. Use NA to let JaBbA infer ploidy from consensus or its internal estimator."
+        },
+        "purity_jabba": {
+          "type": "string",
+          "default": "NA",
+          "pattern": "^(NA|NULL|[-+]?(?:\\d+\\.?\\d*|\\d*\\.\\d+)(?:[eE][-+]?\\d+)?)$",
+          "description": "Optional single-value JaBbA purity override. Use NA to let JaBbA infer purity from consensus or its internal estimator."
+        },
+        "pp_method_jabba": {
+          "type": "string",
+          "enum": [
+            "sequenza",
+            "ppgrid"
+          ],
+          "default": "sequenza",
+          "description": "Internal JaBbA purity/ploidy estimator used only when explicit values and consensus values are unavailable."
+        },
+        "cnsignif_jabba": {
+          "type": "number",
+          "default": 1e-05,
+          "description": "CBS alpha value passed to JaBbA."
+        },
+        "slack_jabba": {
+          "type": "number",
+          "default": 20,
+          "description": "JaBbA loose-end slack penalty."
+        },
+        "linear_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Use linear loose-end penalties in JaBbA."
+        },
+        "tilim_jabba": {
+          "type": "integer",
+          "default": 3600,
+          "minimum": 1,
+          "description": "JaBbA optimizer time limit in seconds."
+        },
+        "epgap_jabba": {
+          "type": "number",
+          "default": 0.001,
+          "minimum": 0,
+          "description": "JaBbA MIP convergence gap threshold."
+        },
+        "fix_thres_jabba": {
+          "type": "number",
+          "default": -1,
+          "description": "JaBbA fix threshold multiple of lambda."
+        },
+        "lp_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Run JaBbA optimization as a linear program."
+        },
+        "ism_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Enable ISM constraints in JaBbA."
+        },
+        "filter_loose_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "FALSE",
+          "description": "Run JaBbA loose-end filtering annotations."
+        },
+        "gurobi_jabba": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use Gurobi inside JaBbA. Set to false to run JaBbA without Gurobi."
+        },
+        "verbose_jabba": {
+          "type": "string",
+          "enum": [
+            "TRUE",
+            "FALSE"
+          ],
+          "default": "TRUE",
+          "description": "Emit verbose JaBbA logging."
+        }
+      }
+    },
+    "generic_options": {
+      "title": "Generic Run Options",
+      "type": "object",
+      "fa_icon": "fas fa-cogs",
+      "description": "General Nextflow pipeline controls.",
+      "properties": {
+        "enable_conda": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Conda environments when supported by the runtime profile."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address for pipeline completion notifications."
+        },
+        "email_on_fail": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address for pipeline failure notifications."
+        },
+        "plaintext_email": {
+          "type": "boolean",
+          "default": false,
+          "description": "Send plaintext emails instead of HTML emails."
+        },
+        "monochrome_logs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Disable ANSI color in logs."
+        },
+        "hook_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Webhook URL for pipeline notifications."
+        },
+        "version": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show pipeline version and exit."
+        }
+      }
+    },
+    "max_job_request_options": {
+      "title": "Maximum Job Request Options",
+      "type": "object",
+      "fa_icon": "fas fa-microchip",
+      "description": "Upper bounds applied by check_max() to per-process resource requests.",
+      "properties": {
+        "max_memory": {
+          "type": "string",
+          "default": "128.GB",
+          "description": "Maximum memory any process may request, expressed as a Nextflow memory string such as 128.GB."
+        },
+        "max_cpus": {
+          "type": "integer",
+          "default": 16,
+          "minimum": 1,
+          "description": "Maximum CPU count any process may request."
+        },
+        "max_time": {
+          "type": "string",
+          "default": "240.h",
+          "description": "Maximum runtime any process may request, expressed as a Nextflow duration string such as 240.h."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/input_output_options"
+    },
+    {
+      "$ref": "#/$defs/reference_options"
+    },
+    {
+      "$ref": "#/$defs/purity_ploidy_estimation_options"
+    },
+    {
+      "$ref": "#/$defs/breakpoint_calling_options"
+    },
+    {
+      "$ref": "#/$defs/coverage_and_qc_options"
+    },
+    {
+      "$ref": "#/$defs/jabba_options"
+    },
+    {
+      "$ref": "#/$defs/generic_options"
+    },
+    {
+      "$ref": "#/$defs/max_job_request_options"
+    }
+  ]
+}

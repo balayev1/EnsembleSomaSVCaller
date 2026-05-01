@@ -3,18 +3,21 @@ From: bioconductor/bioconductor_docker:RELEASE_3_21
 
 %labels
     Author balay011
-    Description JaBbA on R 4.5 / Bioconductor 3.21 with Gurobi 13.0.1 and container-scoped compatibility fixes
+    Description JaBbA on R 4.5 / Bioconductor 3.21 with Gurobi 13.0.1, CPLEX/Rcplex fallback support, and container-scoped compatibility fixes
 
 %environment
     export GUROBI_HOME=/opt/gurobi1300/linux64
-    export PATH="${GUROBI_HOME}/bin:${PATH}"
-    export LD_LIBRARY_PATH="${GUROBI_HOME}/lib:${LD_LIBRARY_PATH}"
+    export CPLEX_DIR=/opt/cplex2211
+    export CPLEXDIR=/opt/cplex2211
+    export PATH="${GUROBI_HOME}/bin:${CPLEX_DIR}/cplex/bin/x86-64_linux:${PATH}"
+    export LD_LIBRARY_PATH="${GUROBI_HOME}/lib:${CPLEX_DIR}/cplex/lib/x86-64_linux/static_pic:${LD_LIBRARY_PATH}"
     export R_LIBS_SITE=/usr/local/lib/R/site-library
 
 %files
     gurobi13.0.1_linux64.tar.gz /opt/gurobi13.0.1_linux64.tar.gz
+    cos_installer_preview-22.1.2.R4-M0N96ML-linux-x86-64.bin /opt/cplex_installer.bin
     Rprofile.site /usr/local/lib/R/etc/Rprofile.site
-    test_jabba_gurobi.R /usr/local/bin/test_jabba_gurobi.R
+    test_jabba_optimizers.R /usr/local/bin/test_jabba_optimizers.R
 
 %post
     export DEBIAN_FRONTEND=noninteractive
@@ -35,32 +38,62 @@ From: bioconductor/bioconductor_docker:RELEASE_3_21
         pkg-config
     rm -rf /var/lib/apt/lists/*
 
-    mkdir -p /opt/gurobi1300
+    mkdir -p /opt/gurobi1300 /opt/cplex2211 /tmp/cplex_installer_tmp /tmp/cplex_home
 
+    # ---------------------------------------------------------
+    # 1. Install System Solvers First
+    # ---------------------------------------------------------
+    # Gurobi
+    tar -xzf /opt/gurobi13.0.1_linux64.tar.gz -C /opt/gurobi1300 --strip-components=1
+    rm -f /opt/gurobi13.0.1_linux64.tar.gz
+
+    # CPLEX
+    chmod +x /opt/cplex_installer.bin
+    export HOME=/tmp/cplex_home
+    /opt/cplex_installer.bin \
+        -i silent \
+        -tempdir /tmp/cplex_installer_tmp \
+        -DUSER_INSTALL_DIR=/opt/cplex2211 \
+        -DLICENSE_ACCEPTED=TRUE
+    rm -f /opt/cplex_installer.bin
+
+    # Export variables to the active %post session so R sees them during build
+    export GUROBI_HOME=/opt/gurobi1300/linux64
+    export CPLEX_DIR=/opt/cplex2211
+    export CPLEXDIR=/opt/cplex2211
+    
+    echo "/opt/gurobi1300/linux64/lib" > /etc/ld.so.conf.d/gurobi.conf
+    echo "/opt/cplex2211/cplex/lib/x86-64_linux/static_pic" > /etc/ld.so.conf.d/cplex.conf
+    ldconfig
+    export LD_LIBRARY_PATH="/opt/gurobi1300/linux64/lib:/opt/cplex2211/cplex/lib/x86-64_linux/static_pic:${LD_LIBRARY_PATH}"
+
+    # ---------------------------------------------------------
+    # 2. Install Solver R Packages
+    # ---------------------------------------------------------
+    R CMD INSTALL /opt/gurobi1300/linux64/R/gurobi_13.0-1_R_4.5.0.tar.gz
+    
+    # Pre-install the 'slam' dependency required by Rcplex
+    Rscript -e 'install.packages("slam", repos="https://cloud.r-project.org")'
+
+    curl -O https://cloud.r-project.org/src/contrib/Rcplex_0.3-8.tar.gz
+    R CMD INSTALL Rcplex_0.3-8.tar.gz \
+        --configure-args="--with-cplex-include=/opt/cplex2211/cplex/include --with-cplex-lib='-L/opt/cplex2211/cplex/lib/x86-64_linux/static_pic -lcplex -lm -lpthread' --with-cplex-cflags='-m64 -fPIC -I/usr/include'"
+    rm -f Rcplex_0.3-8.tar.gz
+
+    # ---------------------------------------------------------
+    # 3. Install Bioconductor, CRAN, and MSK Packages
+    # ---------------------------------------------------------
     Rscript - <<'EOF'
     options(repos = c(CRAN = "https://cloud.r-project.org"))
 
-    # Gurobi 13.0.1 ships a compiled R package for the R 4.5 series.
-    # Keep the matching Bioconductor release and patch JaBbA/gGnome at image startup.
     BiocManager::install(
-        c(
-            "BiocGenerics",
-            "S4Vectors",
-            "IRanges",
-            "GenomicRanges",
-            "GenomeInfoDb",
-            "SummarizedExperiment",
-            "VariantAnnotation",
-            "DNAcopy"
-        ),
-        update = FALSE,
-        ask = FALSE
+        c("BiocGenerics", "S4Vectors", "IRanges", "GenomicRanges", "GenomeInfoDb", 
+          "SummarizedExperiment", "VariantAnnotation", "DNAcopy"),
+        update = FALSE, ask = FALSE
     )
 
-    # Install standard CRAN dependencies (Added pbapply, iotools, readr, seqminer for sequenza)
     install.packages(c("remotes", "slam", "optparse", "gplots", "squash", "pbapply", "iotools", "readr", "seqminer"), Ncpus = max(1L, parallel::detectCores() - 1L))
 
-    # Fortified install function that hard-stops on failure
     install_if_missing <- function(pkg, installer) {
         if (!requireNamespace(pkg, quietly = TRUE)) {
             cat(sprintf("=> Installing %s...\n", pkg))
@@ -73,40 +106,26 @@ From: bioconductor/bioconductor_docker:RELEASE_3_21
         }
     }
 
-    # 2. Install Copynumber (Archived Bioc)
     install_if_missing("copynumber", function() {
-        remotes::install_url(
-            "https://bioconductor.statistik.tu-dortmund.de/packages/3.15/bioc/src/contrib/copynumber_1.36.0.tar.gz",
-            upgrade = "never",
-            dependencies = FALSE
-        )
+        remotes::install_url("https://bioconductor.statistik.tu-dortmund.de/packages/3.15/bioc/src/contrib/copynumber_1.36.0.tar.gz", upgrade = "never", dependencies = FALSE)
     })
 
-    # 3. Install Sequenza (Archived CRAN)
     install_if_missing("sequenza", function() {
-        remotes::install_url(
-            "https://cran.r-project.org/src/contrib/Archive/sequenza/sequenza_3.0.0.tar.gz",
-            upgrade = "never",
-            dependencies = FALSE
-        )
+        remotes::install_url("https://cran.r-project.org/src/contrib/Archive/sequenza/sequenza_3.0.0.tar.gz", upgrade = "never", dependencies = FALSE)
     })
 
-    # 4. Universal GitHub API Bypass & Source Code Patcher
     install_github_local <- function(repo, ref = NULL, apply_patch = FALSE) {
         pkg_name <- basename(repo)
         path <- file.path(tempdir(), pkg_name)
         
-        # 1. Clone over HTTPS to bypass API rate limits and timeouts
         exit_code <- system(sprintf("git clone https://github.com/%s.git %s", repo, path))
         if (exit_code != 0) stop(sprintf("CRITICAL ERROR: Failed to git clone %s", repo))
 
-        # 2. Checkout specific commit hash if provided (e.g., for JaBbA)
         if (!is.null(ref)) {
             exit_code <- system(sprintf("cd %s && git checkout %s", path, ref))
             if (exit_code != 0) stop(sprintf("CRITICAL ERROR: Failed to checkout %s in %s", ref, repo))
         }
 
-        # 3. Apply Bioc 3.21 seqinfo<- source code patch to prevent runtime crashes
         if (apply_patch) {
             r_files <- list.files(file.path(path, "R"), full.names = TRUE, pattern = "\\.R$")
             for (f in r_files) {
@@ -119,7 +138,6 @@ From: bioconductor/bioconductor_docker:RELEASE_3_21
             }
         }
 
-        # 4. Compile the local, patched directory
         remotes::install_local(path, upgrade = "never", dependencies = TRUE, build_vignettes = FALSE)
     }
 
@@ -132,32 +150,19 @@ From: bioconductor/bioconductor_docker:RELEASE_3_21
     cat("=> Cloning, patching, and compiling gTrack...\n")
     install_github_local("mskilab-org/gTrack", apply_patch = TRUE)
 
+    # gGnome will now correctly detect CPLEXDIR from the environment
     cat("=> Cloning, patching, and compiling gGnome...\n")
     install_github_local("mskilab-org/gGnome", apply_patch = TRUE)
 
-    # 5. Install JaBbA Directly (Using specific commit and applying the patch)
     cat("=> Cloning, patching, and compiling JaBbA...\n")
     install_github_local("mskilab-org/JaBbA", ref = "f14679b2d7272a7b7f5fd7f602532afae42db882", apply_patch = TRUE)
 EOF
 
-    # 6. Install Gurobi
-    tar -xzf /opt/gurobi13.0.1_linux64.tar.gz -C /opt/gurobi1300 --strip-components=1
-    rm -f /opt/gurobi13.0.1_linux64.tar.gz
-
-    # Tell the OS linker where Gurobi's libraries are during %post
-    echo "/opt/gurobi1300/linux64/lib" > /etc/ld.so.conf.d/gurobi.conf
-    ldconfig
-
-    # Also temporarily set it for the active bash session running %post
-    export LD_LIBRARY_PATH="/opt/gurobi1300/linux64/lib:${LD_LIBRARY_PATH}"
-
-    # Install the R package
-    R CMD INSTALL /opt/gurobi1300/linux64/R/gurobi_13.0-1_R_4.5.0.tar.gz
-
-    chmod 755 /usr/local/bin/test_jabba_gurobi.R
-
-    # 7. Final verification, including the JaBbA compatibility shim from Rprofile.site
-    Rscript /usr/local/bin/test_jabba_gurobi.R
+    # ---------------------------------------------------------
+    # 4. Final verification of JaBbA and Optimizers
+    # ---------------------------------------------------------
+    chmod 755 /usr/local/bin/test_jabba_optimizers.R
+    Rscript /usr/local/bin/test_jabba_optimizers.R
 
 %runscript
     exec "$@"
