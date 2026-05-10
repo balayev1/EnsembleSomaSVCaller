@@ -9,6 +9,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+BASE_CALLERS = ("ASCAT", "FACETS", "Sequenza", "ACEseq")
+MIN_CALLERS_FOR_CONSENSUS = 2
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -54,9 +57,22 @@ def parse_args():
 
 def require_float(value, description):
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Could not parse numeric value for {description}: {value!r}") from exc
+
+    if not math.isfinite(parsed):
+        raise ValueError(f"Non-finite numeric value for {description}: {value!r}")
+
+    return parsed
+
+
+def is_missing_value(value):
+    if value is None:
+        return True
+
+    text = str(value).strip()
+    return text == "" or text.upper() in {"NA", "NULL", "NAN", "."}
 
 
 def read_tsv_rows(path):
@@ -73,6 +89,9 @@ def read_tsv_rows(path):
 
 
 def make_candidate(sample_id, caller, base_caller, option_rank, purity, ploidy, source_file):
+    if is_missing_value(purity) or is_missing_value(ploidy):
+        return None
+
     return {
         "sample_id": sample_id,
         "caller": caller,
@@ -86,17 +105,16 @@ def make_candidate(sample_id, caller, base_caller, option_rank, purity, ploidy, 
 
 def parse_ascat(sample_id, path):
     row = read_tsv_rows(path)[0]
-    return [
-        make_candidate(
-            sample_id=sample_id,
-            caller="ASCAT",
-            base_caller="ASCAT",
-            option_rank=1,
-            purity=row["AberrantCellFraction"],
-            ploidy=row["Ploidy"],
-            source_file=path,
-        )
-    ]
+    candidate = make_candidate(
+        sample_id=sample_id,
+        caller="ASCAT",
+        base_caller="ASCAT",
+        option_rank=1,
+        purity=row["AberrantCellFraction"],
+        ploidy=row["Ploidy"],
+        source_file=path,
+    )
+    return [candidate] if candidate is not None else []
 
 
 def parse_facets(sample_id, path):
@@ -115,49 +133,47 @@ def parse_facets(sample_id, path):
     if purity is None or ploidy is None:
         raise ValueError(f"Could not find ##purity or ##ploidy headers in {path}")
 
-    return [
-        make_candidate(
-            sample_id=sample_id,
-            caller="FACETS",
-            base_caller="FACETS",
-            option_rank=1,
-            purity=purity,
-            ploidy=ploidy,
-            source_file=path,
-        )
-    ]
+    candidate = make_candidate(
+        sample_id=sample_id,
+        caller="FACETS",
+        base_caller="FACETS",
+        option_rank=1,
+        purity=purity,
+        ploidy=ploidy,
+        source_file=path,
+    )
+    return [candidate] if candidate is not None else []
 
 
 def parse_sequenza(sample_id, path):
     row = read_tsv_rows(path)[0]
-    return [
-        make_candidate(
-            sample_id=sample_id,
-            caller="Sequenza",
-            base_caller="Sequenza",
-            option_rank=1,
-            purity=row["cellularity"],
-            ploidy=row["ploidy"],
-            source_file=path,
-        )
-    ]
+    candidate = make_candidate(
+        sample_id=sample_id,
+        caller="Sequenza",
+        base_caller="Sequenza",
+        option_rank=1,
+        purity=row["cellularity"],
+        ploidy=row["ploidy"],
+        source_file=path,
+    )
+    return [candidate] if candidate is not None else []
 
 
 def parse_aceseq(sample_id, path):
     rows = read_tsv_rows(path)
     candidates = []
     for idx, row in enumerate(rows, start=1):
-        candidates.append(
-            make_candidate(
-                sample_id=sample_id,
-                caller=f"ACEseq_Option{idx}",
-                base_caller="ACEseq",
-                option_rank=idx,
-                purity=row["tcc"],
-                ploidy=row["ploidy_factor"],
-                source_file=path,
-            )
+        candidate = make_candidate(
+            sample_id=sample_id,
+            caller=f"ACEseq_Option{idx}",
+            base_caller="ACEseq",
+            option_rank=idx,
+            purity=row["tcc"],
+            ploidy=row["ploidy_factor"],
+            source_file=path,
         )
+        if candidate is not None:
+            candidates.append(candidate)
     return candidates
 
 
@@ -228,6 +244,11 @@ def unique_callers_in_order(records):
             seen.add(record["base_caller"])
             callers.append(record["base_caller"])
     return callers
+
+
+def count_missing_base_callers(candidates):
+    usable_callers = set(unique_callers_in_order(candidates))
+    return sum(1 for caller in BASE_CALLERS if caller not in usable_callers)
 
 
 def assign_clusters(candidates, eps, min_samples):
@@ -347,12 +368,20 @@ def main():
     candidates.extend(parse_sequenza(args.sample_id, args.sequenza))
     candidates.extend(parse_aceseq(args.sample_id, args.aceseq))
 
+    missing_base_callers = count_missing_base_callers(candidates)
     consensus = assign_clusters(candidates, eps=args.eps, min_samples=args.min_samples)
+    if missing_base_callers >= len(BASE_CALLERS) - MIN_CALLERS_FOR_CONSENSUS + 1:
+        consensus = None
+
     write_candidates(args.candidates_out, candidates)
     write_consensus(args.consensus_out, args.sample_id, consensus, args.eps, args.min_samples)
 
     print(f"Collected {len(candidates)} purity/ploidy candidates for sample {args.sample_id}.")
-    if consensus is None:
+    if not candidates:
+        print("No usable purity/ploidy candidates remained after filtering missing values.")
+    elif missing_base_callers >= len(BASE_CALLERS) - MIN_CALLERS_FOR_CONSENSUS + 1:
+        print("No consensus cluster was reported because three or more callers yielded missing purity/ploidy values.")
+    elif consensus is None:
         print("No consensus cluster was found across at least two distinct callers.")
     else:
         _, records = consensus
