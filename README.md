@@ -4,15 +4,23 @@ EnsembleSomaSVCaller is a Nextflow DSL2 pipeline for somatic structural variant 
 
 This repository is designed to work downstream of [`nf-aceseq`](https://github.com/ghga-de/nf-aceseq), which produces the ACEseq purity/ploidy and segmentation outputs that EnsembleSomaSVCaller consumes during purity/ploidy reconciliation and JaBbA preparation.
 
+If needed, the pipeline can also run in a reduced `--skip_aceseq true` mode. In that mode, ACEseq is omitted entirely and purity/ploidy consensus is computed from ASCAT, FACETS, and Sequenza only.
+
 ## End-To-End Workflow
 
-The intended flow is:
+The default intended flow is:
 
 1. Prepare one shared tumor-normal samplesheet.
 2. Run `nf-aceseq` on the same samples.
 3. Build an `aceseq_manifest.tsv` that points to the required ACEseq outputs.
 4. Validate the manifest against the samplesheet.
 5. Run EnsembleSomaSVCaller with both the samplesheet and the ACEseq manifest.
+
+Alternative flow:
+
+1. Prepare one shared tumor-normal samplesheet.
+2. Launch EnsembleSomaSVCaller with `--skip_aceseq true`.
+3. The pipeline skips ACEseq manifest validation and merges purity/ploidy from the remaining callers only.
 
 If you are on MSI/SLURM and want that chaining done for you, this repo also includes [`master_somasv.sh`](master_somasv.sh), [`slurm/nf_aceseq.sbatch`](slurm/nf_aceseq.sbatch), and [`slurm/nf_somasv.sbatch`](slurm/nf_somasv.sbatch).
 
@@ -66,6 +74,8 @@ CB822,male,,/data/CB822_tumor.bam,/data/CB822_tumor.bam.bai,/data/CB822_normal.b
 ## Step 1: Run nf-aceseq
 
 Upstream `nf-aceseq` documentation describes a standard Nextflow launch using `--input`, `--outdir`, and a container profile. In this repo, the bundled MSI helper runs `nf-aceseq` with the local ACEseq config in [`conf/aceseq_msi.config`](conf/aceseq_msi.config), which is a good starting point if your environment is similar.
+
+Optional skip-ACEseq route: if ACEseq outputs are unavailable or you want to run the reduced caller ensemble, skip Step 1 through Step 3 and launch EnsembleSomaSVCaller with `--skip_aceseq true` in Step 4. In this mode the pipeline does not require `--aceseq_manifest`; purity/ploidy consensus is computed from ASCAT, FACETS, and Sequenza only.
 
 Example direct run:
 
@@ -139,6 +149,8 @@ python3 bin/validate_aceseq_manifest.py \
   --manifest /path/to/aceseq_manifest.tsv
 ```
 
+Skip this step if you plan to run with `--skip_aceseq true`.
+
 ## Step 4: Run EnsembleSomaSVCaller
 
 Launch EnsembleSomaSVCaller with the same samplesheet plus the validated ACEseq manifest:
@@ -148,6 +160,16 @@ nextflow run main.nf \
   -profile singularity \
   --input /path/to/samplesheet.csv \
   --aceseq_manifest /path/to/aceseq_manifest.tsv \
+  --outdir /path/to/results
+```
+
+To run without ACEseq:
+
+```bash
+nextflow run main.nf \
+  -profile singularity \
+  --input /path/to/samplesheet.csv \
+  --skip_aceseq true \
   --outdir /path/to/results
 ```
 
@@ -212,6 +234,19 @@ bash master_somasv.sh \
   --gurobi-path /path/to/gurobi.lic
 ```
 
+To submit SomaSV directly without ACEseq through the wrapper:
+
+```bash
+bash master_somasv.sh \
+  --somasv-repo /path/to/EnsembleSomaSVCaller \
+  --somasv-out-base /path/to/SomaticSV_outs \
+  --samplesheet /path/to/samplesheet.csv \
+  --skip-aceseq TRUE \
+  --gurobi-jabba TRUE \
+  --gurobi-home /opt/gurobi1300/linux64 \
+  --gurobi-path /path/to/gurobi.lic
+```
+
 If you intentionally want the `Rcplex`/CPLEX fallback through the wrapper, disable Gurobi and provide `CPLEXDIR`:
 
 ```bash
@@ -227,7 +262,8 @@ bash master_somasv.sh \
 What each wrapper option means:
 
 - `--somasv-repo`: path to this `EnsembleSomaSVCaller` repository checkout. The wrapper uses it to find `main.nf`, helper scripts, and the SLURM submission scripts.
-- `--aceseq-repo`: path to the `nf-aceseq` repository checkout. The wrapper uses it to launch the upstream ACEseq pipeline first.
+- `--aceseq-repo`: path to the `nf-aceseq` repository checkout. Required for the default chained mode; not needed with `--skip-aceseq TRUE`.
+- `--skip-aceseq`: when `TRUE`, skip the upstream ACEseq submission and launch EnsembleSomaSVCaller directly without an ACEseq manifest.
 - `--somasv-out-base`: base output directory for the whole chained run. The wrapper creates run-specific `ACESEQ_out/`, `SOMASV_out/`, `launches/`, and handoff directories underneath it.
 - `--samplesheet`: CSV file listing the tumor-normal samples to process. The wrapper splits this into one-sample CSVs before submitting jobs.
 - `--gurobi-home`: path to the Gurobi installation root. The wrapper exports it as `GUROBI_HOME` so the JaBbA task can find the solver libraries.
@@ -238,9 +274,9 @@ What each wrapper option means:
 What this wrapper does:
 
 - splits the input CSV into one sample per launch
-- submits `nf-aceseq` first with [`slurm/nf_aceseq.sbatch`](slurm/nf_aceseq.sbatch)
-- builds and validates `handoff/<sample>/aceseq_manifest.tsv`
-- submits EnsembleSomaSVCaller with an `afterok` dependency using [`slurm/nf_somasv.sbatch`](slurm/nf_somasv.sbatch)
+- submits `nf-aceseq` first with [`slurm/nf_aceseq.sbatch`](slurm/nf_aceseq.sbatch) in the default mode
+- builds and validates `handoff/<sample>/aceseq_manifest.tsv` in the default mode
+- submits EnsembleSomaSVCaller with an `afterok` dependency using [`slurm/nf_somasv.sbatch`](slurm/nf_somasv.sbatch), or directly when `--skip-aceseq TRUE`
 - forwards `--gurobi-home`, `--cplex-dir`, `--gurobi-jabba`, and `--gurobi-path` into the SLURM environment used by the downstream Nextflow JaBbA task
 
 Typical output layout under `--somasv-out-base`:

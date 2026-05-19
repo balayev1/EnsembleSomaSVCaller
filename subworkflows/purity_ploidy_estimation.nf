@@ -132,25 +132,35 @@ workflow PURITY_PLOIDY_ESTIMATION {
         )
         versions = versions.mix(FACETS.out.versions)
 
-        aceseq_ploidy_purity = aceseq_manifest_tsv
-            .flatMap { manifest_path ->
-                def manifest_base_dir = manifest_path.parent
-                readTsvRows(manifest_path).collect { row ->
-                    [
-                        row.sample_id.toString(),
-                        resolveManifestPath(row.ploidy_purity_2d.toString(), manifest_base_dir)
-                    ]
+        if (params.skip_aceseq) {
+            purity_ploidy_merge_input = ASCAT.out.purityploidy
+                .map { meta, ascat_file -> [meta.id, meta, ascat_file] }
+                .join(FACETS.out.vcf.map { meta, facets_vcf -> [meta.id, facets_vcf] })
+                .join(SEQUENZA_RUN.out.purity_ploidy_est.map { meta, sequenza_file -> [meta.id, sequenza_file] })
+                .map { sample_id, meta, ascat_file, facets_vcf, sequenza_file ->
+                    [meta, ascat_file, facets_vcf, sequenza_file, '']
                 }
-            }
+        } else {
+            aceseq_ploidy_purity = aceseq_manifest_tsv
+                .flatMap { manifest_path ->
+                    def manifest_base_dir = manifest_path.parent
+                    readTsvRows(manifest_path).collect { row ->
+                        [
+                            row.sample_id.toString(),
+                            resolveManifestPath(row.ploidy_purity_2d.toString(), manifest_base_dir)
+                        ]
+                    }
+                }
 
-        purity_ploidy_merge_input = ASCAT.out.purityploidy
-            .map { meta, ascat_file -> [meta.id, meta, ascat_file] }
-            .join(FACETS.out.vcf.map { meta, facets_vcf -> [meta.id, facets_vcf] })
-            .join(SEQUENZA_RUN.out.purity_ploidy_est.map { meta, sequenza_file -> [meta.id, sequenza_file] })
-            .join(aceseq_ploidy_purity)
-            .map { sample_id, meta, ascat_file, facets_vcf, sequenza_file, aceseq_file ->
-                [meta, ascat_file, facets_vcf, sequenza_file, aceseq_file]
-            }
+            purity_ploidy_merge_input = ASCAT.out.purityploidy
+                .map { meta, ascat_file -> [meta.id, meta, ascat_file] }
+                .join(FACETS.out.vcf.map { meta, facets_vcf -> [meta.id, facets_vcf] })
+                .join(SEQUENZA_RUN.out.purity_ploidy_est.map { meta, sequenza_file -> [meta.id, sequenza_file] })
+                .join(aceseq_ploidy_purity)
+                .map { sample_id, meta, ascat_file, facets_vcf, sequenza_file, aceseq_file ->
+                    [meta, ascat_file, facets_vcf, sequenza_file, aceseq_file]
+                }
+        }
 
         PURITY_PLOIDY_MERGE(purity_ploidy_merge_input)
         purity_ploidy_candidates = PURITY_PLOIDY_MERGE.out.candidates

@@ -9,7 +9,7 @@
 
 ## Required Inputs
 
-The pipeline requires two manifest files:
+The pipeline always requires the main samplesheet. By default it also requires an ACEseq manifest, unless you launch with `--skip_aceseq true`.
 
 ### Main samplesheet
 
@@ -35,7 +35,7 @@ CB822,male,,/data/CB822_tumor.bam,/data/CB822_tumor.bam.bai,/data/CB822_normal.b
 
 ### ACEseq manifest
 
-Pass with `--aceseq_manifest`. This must be a TSV with the following required columns:
+Pass with `--aceseq_manifest`. This must be a TSV with the following required columns. It is required unless `--skip_aceseq true` is set:
 
 - `sample_id`
 - `aceseq_dir`
@@ -69,6 +69,16 @@ nextflow run main.nf \
   --outdir /path/to/results
 ```
 
+Skip-ACEseq mode:
+
+```bash
+nextflow run main.nf \
+  -profile singularity \
+  --input /path/to/samplesheet.csv \
+  --skip_aceseq true \
+  --outdir /path/to/results
+```
+
 ### From GitHub
 
 ```bash
@@ -86,7 +96,7 @@ The pipeline validates user parameters at startup with `nf-schema`. This include
 
 - top-level parameter validation from `nextflow_schema.json`
 - main samplesheet validation from `assets/schema_input.json`
-- ACEseq manifest validation from `assets/schema_aceseq_manifest.json`
+- ACEseq manifest validation from `assets/schema_aceseq_manifest.json` when `skip_aceseq` is not enabled
 
 To print the generated help text:
 
@@ -111,6 +121,7 @@ Notes:
 
 - `--genome`: genome key used to resolve references from `params.genomes`
 - `--igenomes_base`: base directory containing the reference bundle
+- `--skip_aceseq`: skip ACEseq manifest usage and merge purity/ploidy from ASCAT, FACETS, and Sequenza only
 - `--somasv_out_base`: default base directory used to derive `--outdir`
 - `--publish_dir_mode`: publish mode for final outputs, default `copy`
 - `--purity_jabba`: optional explicit JaBbA purity override
@@ -149,6 +160,6 @@ nextflow run main.nf \
 
 ## Operational Notes
 
-- The repository currently contains site-specific defaults in `nextflow.config`. For production runs, explicitly pass `--input`, `--aceseq_manifest`, and `--outdir`.
+- The repository currently contains site-specific defaults in `nextflow.config`. For production runs, explicitly pass `--input`, `--outdir`, and either `--aceseq_manifest` or `--skip_aceseq true`.
 - The pipeline expects matched tumor-normal BAMs with valid index files.
 - JaBbA purity and ploidy overrides are expected to be single values or `NA`, not candidate ranges.

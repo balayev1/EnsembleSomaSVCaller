@@ -12,8 +12,7 @@
       "fa_icon": "fas fa-file-import",
       "description": "Mandatory pipeline inputs and top-level output locations.",
       "required": [
-        "input",
-        "aceseq_manifest"
+        "input"
       ],
       "properties": {
         "input": {
@@ -34,8 +33,14 @@
           "mimetype": "text/tab-separated-values",
           "pattern": "^\\S+\\.(tsv|txt)$",
           "schema": "assets/schema_aceseq_manifest.json",
-          "description": "Path to the ACEseq manifest TSV validated against the samplesheet.",
+          "description": "Path to the ACEseq manifest TSV validated against the samplesheet. Required unless skip_aceseq is true.",
           "help_text": "Required columns: sample_id, aceseq_dir, cnv_tab, snp_tab, pscbs_data, sex_file, clustered_and_pruned_and_normal, ploidy_purity_2d, breakpoints2, known_segments."
+        },
+        "skip_aceseq": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run without ACEseq inputs and merge purity/ploidy from ASCAT, FACETS, and Sequenza only.",
+          "help_text": "When true, aceseq_manifest is ignored and the pipeline skips ACEseq manifest validation."
         },
         "somasv_out_base": {
           "type": "string",

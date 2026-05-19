@@ -8,7 +8,7 @@ process PURITY_PLOIDY_MERGE {
         'quay.io/biocontainers/python:3.8.3' }"
 
     input:
-    tuple val(meta), path(ascat_purityploidy), path(facets_vcf), path(sequenza_solutions), path(aceseq_ploidy_purity)
+    tuple val(meta), path(ascat_purityploidy), path(facets_vcf), path(sequenza_solutions), val(aceseq_ploidy_purity)
 
     output:
     tuple val(meta), path("*.purity_ploidy_candidates.tsv"), emit: candidates
@@ -20,16 +20,23 @@ process PURITY_PLOIDY_MERGE {
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def aceseqArg = aceseq_ploidy_purity?.toString()?.trim() ? """cmd+=( --aceseq "${aceseq_ploidy_purity}" )""" : ''
 
     """
-    python3 "\${NEXTFLOW_PROJECT_DIR}/bin/merge_purity_ploidy.py" \\
-        --sample-id "${meta.id}" \\
-        --ascat "${ascat_purityploidy}" \\
-        --facets "${facets_vcf}" \\
-        --sequenza "${sequenza_solutions}" \\
-        --aceseq "${aceseq_ploidy_purity}" \\
-        --candidates-out "${prefix}.purity_ploidy_candidates.tsv" \\
+    cmd=(
+        python3 "\${NEXTFLOW_PROJECT_DIR}/bin/merge_purity_ploidy.py"
+        --sample-id "${meta.id}"
+        --ascat "${ascat_purityploidy}"
+        --facets "${facets_vcf}"
+        --sequenza "${sequenza_solutions}"
+    )
+    ${aceseqArg}
+    cmd+=(
+        --candidates-out "${prefix}.purity_ploidy_candidates.tsv"
         --consensus-out "${prefix}.purity_ploidy_consensus.tsv"
+    )
+
+    "\${cmd[@]}"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

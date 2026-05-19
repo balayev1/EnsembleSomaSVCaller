@@ -6,6 +6,8 @@ nextflow.enable.dsl=2
     VALIDATE INPUTS
 */
 
+def useAceseqManifest = !params.skip_aceseq
+
 // Check input path parameters to see if they exist
 def dbsnp_chr_prefix_rename_path = params.dbsnp_chr_prefix_rename ?: "${projectDir}/assets/dbsnp_chr_prefix_rename.tsv"
 def optionalJabbaPathParams = [
@@ -14,7 +16,6 @@ def optionalJabbaPathParams = [
 ].findAll { it && !(it in ['NULL', 'NA']) }
 def checkPathParamList = [ 
     params.input, 
-    params.aceseq_manifest,
     params.fasta, 
     params.fasta_fai, 
     params.ascat_alleles, 
@@ -41,11 +42,27 @@ def checkPathParamList = [
     params.simple_seq_db,
     dbsnp_chr_prefix_rename_path
 ] + optionalJabbaPathParams
+if (useAceseqManifest && params.aceseq_manifest) {
+    checkPathParamList << params.aceseq_manifest
+}
 for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
 
 // Check mandatory parameters
 if (params.input) { ch_input = file(params.input) } else { exit 1, 'Input samplesheet not specified!' }
-if (params.aceseq_manifest) { manifest_input = file(params.aceseq_manifest, checkIfExists: true) } else { exit 1, 'ACEseq manifest not specified!' }
+if (useAceseqManifest) {
+    if (params.aceseq_manifest) {
+        manifest_input = file(params.aceseq_manifest, checkIfExists: true)
+    } else {
+        exit 1, 'ACEseq manifest not specified! Provide --aceseq_manifest or launch with --skip_aceseq true.'
+    }
+} else {
+    manifest_input = null
+    if (params.aceseq_manifest) {
+        log.warn "skip_aceseq is enabled; ignoring the supplied aceseq_manifest: ${params.aceseq_manifest}"
+    } else {
+        log.info 'skip_aceseq is enabled; running purity/ploidy merge without ACEseq inputs.'
+    }
+}
 
 /*
     CHANNEL SETUP
@@ -127,15 +144,20 @@ workflow SOMASV_CALLER {
     // SUBWORKFLOW: Read in samplesheet, validate and stage input files
     //
     prepared_samples = INPUT_PREP(ch_input)
+    aceseq_manifest_tsv = Channel.empty()
 
-    VALIDATE_ACESEQ_MANIFEST(ch_input, manifest_input)
-    manifest_ready = VALIDATE_ACESEQ_MANIFEST.out.ready
-    aceseq_manifest_tsv = Channel.value(manifest_input)
-    samples = prepared_samples
-        .combine(manifest_ready)
-        .map { meta, control, control_index, tumor, tumor_index, _ ->
-            [meta, control, control_index, tumor, tumor_index]
-        }
+    if (useAceseqManifest) {
+        VALIDATE_ACESEQ_MANIFEST(ch_input, manifest_input)
+        manifest_ready = VALIDATE_ACESEQ_MANIFEST.out.ready
+        aceseq_manifest_tsv = Channel.value(manifest_input)
+        samples = prepared_samples
+            .combine(manifest_ready)
+            .map { meta, control, control_index, tumor, tumor_index, _ ->
+                [meta, control, control_index, tumor, tumor_index]
+            }
+    } else {
+        samples = prepared_samples
+    }
 
     //println "The samples: "
     // ch_samples.view()

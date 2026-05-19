@@ -23,21 +23,35 @@ PIPELINE_SAMPLE_ID="${PIPELINE_SAMPLE_ID:?PIPELINE_SAMPLE_ID is required}"
 PIPELINE_OUTDIR="${PIPELINE_OUTDIR:?PIPELINE_OUTDIR is required}"
 PIPELINE_WORKDIR="${PIPELINE_WORKDIR:?PIPELINE_WORKDIR is required}"
 PIPELINE_LAUNCH_DIR="${PIPELINE_LAUNCH_DIR:?PIPELINE_LAUNCH_DIR is required}"
-ACESEQ_MANIFEST="${ACESEQ_MANIFEST:?ACESEQ_MANIFEST is required}"
 SOMASV_REPO="${SOMASV_REPO:?SOMASV_REPO is required}"
 PIPELINE_GUROBI_JABBA="${PIPELINE_GUROBI_JABBA:-FALSE}"
 PIPELINE_GUROBI_PATH="${PIPELINE_GUROBI_PATH:-}"
+PIPELINE_SKIP_ACESEQ="$(printf '%s' "${PIPELINE_SKIP_ACESEQ:-FALSE}" | tr '[:lower:]' '[:upper:]')"
 PIPELINE_INFO_DIR="${PIPELINE_OUTDIR%/}/pipeline_info"
 WRAPPER_CONFIG="${PIPELINE_LAUNCH_DIR}/wrapper_pipeline_info.config"
+
+if [[ "${PIPELINE_SKIP_ACESEQ}" != "TRUE" && "${PIPELINE_SKIP_ACESEQ}" != "FALSE" ]]; then
+    echo "PIPELINE_SKIP_ACESEQ must be TRUE or FALSE, got: ${PIPELINE_SKIP_ACESEQ}" >&2
+    exit 1
+fi
+
+ACESEQ_MANIFEST="${ACESEQ_MANIFEST:-}"
+if [[ "${PIPELINE_SKIP_ACESEQ}" == "FALSE" ]]; then
+    ACESEQ_MANIFEST="${ACESEQ_MANIFEST:?ACESEQ_MANIFEST is required unless PIPELINE_SKIP_ACESEQ is TRUE}"
+fi
 
 mkdir -p "${PIPELINE_LAUNCH_DIR}" "${PIPELINE_WORKDIR}" "${PIPELINE_INFO_DIR}"
 cd "${PIPELINE_LAUNCH_DIR}"
 
 echo "EnsembleSomaSVCaller started at $(date)"
 
-python3 "${SOMASV_REPO}/bin/validate_aceseq_manifest.py" \
-    --samplesheet "${PIPELINE_INPUT}" \
-    --manifest "${ACESEQ_MANIFEST}"
+if [[ "${PIPELINE_SKIP_ACESEQ}" == "FALSE" ]]; then
+    python3 "${SOMASV_REPO}/bin/validate_aceseq_manifest.py" \
+        --samplesheet "${PIPELINE_INPUT}" \
+        --manifest "${ACESEQ_MANIFEST}"
+else
+    echo "Skipping ACEseq manifest validation for ${PIPELINE_SAMPLE_ID}"
+fi
 
 cat > "${WRAPPER_CONFIG}" <<EOF
 trace {
@@ -65,11 +79,15 @@ nextflow_cmd=(
     -c "${WRAPPER_CONFIG}"
     --input "${PIPELINE_INPUT}"
     --outdir "${PIPELINE_OUTDIR}"
-    --aceseq_manifest "${ACESEQ_MANIFEST}"
+    --skip_aceseq "$( [[ "${PIPELINE_SKIP_ACESEQ}" == "TRUE" ]] && printf 'true' || printf 'false' )"
     --gurobi_jabba "${PIPELINE_GUROBI_JABBA}"
     -work-dir "${PIPELINE_WORKDIR}"
     -resume
 )
+
+if [[ "${PIPELINE_SKIP_ACESEQ}" == "FALSE" ]]; then
+    nextflow_cmd+=( --aceseq_manifest "${ACESEQ_MANIFEST}" )
+fi
 
 if [[ "${PIPELINE_GUROBI_JABBA}" == "TRUE" && -n "${PIPELINE_GUROBI_PATH}" ]]; then
     nextflow_cmd+=( --gurobi_license_path "${PIPELINE_GUROBI_PATH}" )

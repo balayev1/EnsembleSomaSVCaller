@@ -9,7 +9,6 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-BASE_CALLERS = ("ASCAT", "FACETS", "Sequenza", "ACEseq")
 MIN_CALLERS_FOR_CONSENSUS = 2
 
 
@@ -27,8 +26,8 @@ def parse_args():
     )
     parser.add_argument(
         "--aceseq",
-        required=True,
-        help="ACEseq *_ploidy_purity_2D.txt file",
+        required=False,
+        help="Optional ACEseq *_ploidy_purity_2D.txt file",
     )
     parser.add_argument(
         "--eps",
@@ -246,9 +245,9 @@ def unique_callers_in_order(records):
     return callers
 
 
-def count_missing_base_callers(candidates):
+def count_missing_base_callers(candidates, expected_callers):
     usable_callers = set(unique_callers_in_order(candidates))
-    return sum(1 for caller in BASE_CALLERS if caller not in usable_callers)
+    return sum(1 for caller in expected_callers if caller not in usable_callers)
 
 
 def assign_clusters(candidates, eps, min_samples):
@@ -361,16 +360,20 @@ def write_consensus(path, sample_id, consensus, eps, min_samples):
 
 def main():
     args = parse_args()
+    expected_callers = ["ASCAT", "FACETS", "Sequenza"]
+    if args.aceseq:
+        expected_callers.append("ACEseq")
 
     candidates = []
     candidates.extend(parse_ascat(args.sample_id, args.ascat))
     candidates.extend(parse_facets(args.sample_id, args.facets))
     candidates.extend(parse_sequenza(args.sample_id, args.sequenza))
-    candidates.extend(parse_aceseq(args.sample_id, args.aceseq))
+    if args.aceseq:
+        candidates.extend(parse_aceseq(args.sample_id, args.aceseq))
 
-    missing_base_callers = count_missing_base_callers(candidates)
+    missing_base_callers = count_missing_base_callers(candidates, expected_callers)
     consensus = assign_clusters(candidates, eps=args.eps, min_samples=args.min_samples)
-    if missing_base_callers >= len(BASE_CALLERS) - MIN_CALLERS_FOR_CONSENSUS + 1:
+    if missing_base_callers >= len(expected_callers) - MIN_CALLERS_FOR_CONSENSUS + 1:
         consensus = None
 
     write_candidates(args.candidates_out, candidates)
@@ -379,8 +382,11 @@ def main():
     print(f"Collected {len(candidates)} purity/ploidy candidates for sample {args.sample_id}.")
     if not candidates:
         print("No usable purity/ploidy candidates remained after filtering missing values.")
-    elif missing_base_callers >= len(BASE_CALLERS) - MIN_CALLERS_FOR_CONSENSUS + 1:
-        print("No consensus cluster was reported because three or more callers yielded missing purity/ploidy values.")
+    elif missing_base_callers >= len(expected_callers) - MIN_CALLERS_FOR_CONSENSUS + 1:
+        threshold = len(expected_callers) - MIN_CALLERS_FOR_CONSENSUS + 1
+        print(
+            f"No consensus cluster was reported because {threshold} or more expected callers yielded missing purity/ploidy values."
+        )
     elif consensus is None:
         print("No consensus cluster was found across at least two distinct callers.")
     else:

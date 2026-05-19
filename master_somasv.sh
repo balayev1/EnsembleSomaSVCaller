@@ -9,10 +9,11 @@ usage() {
 Usage:
   bash master_somasv.sh \
     --somasv-repo /path/to/EnsembleSomaSVCaller \
-    --aceseq-repo /path/to/nf-aceseq \
     --somasv-out-base /path/to/SomaticSV_outs \
     --samplesheet /path/to/samplesheet.csv \
     [--run-id RUN_ID] \
+    [--aceseq-repo /path/to/nf-aceseq] \
+    [--skip-aceseq TRUE|FALSE] \
     [--gurobi-home /path/to/gurobi] \
     [--cplex-dir /path/to/cplex] \
     [--gurobi-jabba TRUE|FALSE] \
@@ -20,12 +21,13 @@ Usage:
 
 Required:
   --somasv-repo
-  --aceseq-repo
   --somasv-out-base
   --samplesheet
 
 Optional:
   --run-id
+  --aceseq-repo
+  --skip-aceseq
   --gurobi-home
   --cplex-dir
   --gurobi-jabba
@@ -45,6 +47,7 @@ GUROBI_HOME="${GUROBI_HOME:-}"
 CPLEXDIR="${CPLEXDIR:-}"
 GUROBI_JABBA="${GUROBI_JABBA:-FALSE}"
 GUROBI_PATH="${GUROBI_PATH:-}"
+SKIP_ACESEQ="${SKIP_ACESEQ:-FALSE}"
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -67,6 +70,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --run-id)
             RUN_ID="$2"
+            shift 2
+            ;;
+        --skip-aceseq)
+            SKIP_ACESEQ="$(printf '%s' "$2" | tr '[:lower:]' '[:upper:]')"
             shift 2
             ;;
         --gurobi-home)
@@ -108,7 +115,7 @@ if [[ ${#POSITIONAL[@]} -ge 2 ]]; then
     RUN_ID="${POSITIONAL[1]}"
 fi
 
-if [[ -z "${SOMASV_REPO}" || -z "${ACESEQ_REPO}" || -z "${SOMASV_OUT_BASE}" || -z "${SAMPLESHEET}" ]]; then
+if [[ -z "${SOMASV_REPO}" || -z "${SOMASV_OUT_BASE}" || -z "${SAMPLESHEET}" ]]; then
     usage >&2
     exit 1
 fi
@@ -121,17 +128,29 @@ if [[ ! -f "${SOMASV_REPO}/main.nf" ]]; then
     echo "SOMASV_REPO does not contain main.nf: ${SOMASV_REPO}" >&2
     exit 1
 fi
-if [[ ! -d "${ACESEQ_REPO}" ]]; then
-    echo "ACESEQ_REPO not found: ${ACESEQ_REPO}" >&2
-    exit 1
-fi
-if [[ ! -f "${ACESEQ_REPO}/main.nf" ]]; then
-    echo "ACESEQ_REPO does not contain main.nf: ${ACESEQ_REPO}" >&2
-    exit 1
-fi
 if [[ ! -f "${SAMPLESHEET}" ]]; then
     echo "Samplesheet not found: ${SAMPLESHEET}" >&2
     exit 1
+fi
+
+if [[ "${SKIP_ACESEQ}" != "TRUE" && "${SKIP_ACESEQ}" != "FALSE" ]]; then
+    echo "SKIP_ACESEQ must be TRUE or FALSE, got: ${SKIP_ACESEQ}" >&2
+    exit 1
+fi
+
+if [[ "${SKIP_ACESEQ}" == "FALSE" ]]; then
+    if [[ -z "${ACESEQ_REPO}" ]]; then
+        echo "ACESEQ_REPO is required unless --skip-aceseq TRUE is set" >&2
+        exit 1
+    fi
+    if [[ ! -d "${ACESEQ_REPO}" ]]; then
+        echo "ACESEQ_REPO not found: ${ACESEQ_REPO}" >&2
+        exit 1
+    fi
+    if [[ ! -f "${ACESEQ_REPO}/main.nf" ]]; then
+        echo "ACESEQ_REPO does not contain main.nf: ${ACESEQ_REPO}" >&2
+        exit 1
+    fi
 fi
 
 if [[ "${GUROBI_JABBA}" != "TRUE" && "${GUROBI_JABBA}" != "FALSE" ]]; then
@@ -158,6 +177,7 @@ export GUROBI_HOME
 export CPLEXDIR
 export GUROBI_JABBA
 export GUROBI_PATH
+export SKIP_ACESEQ
 
 ACESEQ_OUT_BASE="${ACESEQ_OUT_BASE:-${SOMASV_OUT_BASE%/}/ACESEQ_out}"
 ACESEQ_RUN_OUTDIR="${ACESEQ_OUT_BASE%/}/${RUN_ID}"
@@ -180,6 +200,7 @@ echo "Run ID: ${RUN_ID}"
 echo "Samplesheet: ${SAMPLESHEET}"
 echo "ACEseq outdir: ${ACESEQ_RUN_OUTDIR}"
 echo "EnsembleSomaSVCaller outdir: ${SOMASV_RUN_OUTDIR}"
+echo "Skip ACEseq: ${SKIP_ACESEQ}"
 echo "JaBbA Gurobi enabled: ${GUROBI_JABBA}"
 if [[ -n "${GUROBI_HOME}" ]]; then
     echo "GUROBI_HOME: ${GUROBI_HOME}"
@@ -220,20 +241,31 @@ echo
             printf '%s\n' "${line}"
         } > "${sample_sheet}"
 
-        ACESEQ_JOB=$(
-            sbatch --parsable \
-                --export=ALL,SOMASV_REPO="${SOMASV_REPO}",ACESEQ_REPO="${ACESEQ_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${ACESEQ_RUN_OUTDIR}",PIPELINE_WORKDIR="${aceseq_work_dir}",PIPELINE_LAUNCH_DIR="${aceseq_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}" \
-                "${SOMASV_REPO}/slurm/nf_aceseq.sbatch"
-        )
+        if [[ "${SKIP_ACESEQ}" == "TRUE" ]]; then
+            SOMASV_JOB=$(
+                sbatch --parsable \
+                    --export=ALL,SOMASV_REPO="${SOMASV_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${SOMASV_RUN_OUTDIR}",PIPELINE_WORKDIR="${somasv_work_dir}",PIPELINE_LAUNCH_DIR="${somasv_launch_dir}",PIPELINE_SKIP_ACESEQ="${SKIP_ACESEQ}",PIPELINE_GUROBI_JABBA="${GUROBI_JABBA}",PIPELINE_GUROBI_PATH="${GUROBI_PATH}" \
+                    "${SOMASV_REPO}/slurm/nf_somasv.sbatch"
+            )
 
-        SOMASV_JOB=$(
-            sbatch --parsable \
-                --dependency=afterok:${ACESEQ_JOB} \
-                --export=ALL,SOMASV_REPO="${SOMASV_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${SOMASV_RUN_OUTDIR}",PIPELINE_WORKDIR="${somasv_work_dir}",PIPELINE_LAUNCH_DIR="${somasv_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}",PIPELINE_GUROBI_JABBA="${GUROBI_JABBA}",PIPELINE_GUROBI_PATH="${GUROBI_PATH}" \
-                "${SOMASV_REPO}/slurm/nf_somasv.sbatch"
-        )
+            printf 'Sample %-20s ACEseq job %-12s EnsembleSomaSVCaller job %-12s Manifest %s\n' \
+                "${sample}" "SKIPPED" "${SOMASV_JOB}" "SKIPPED"
+        else
+            ACESEQ_JOB=$(
+                sbatch --parsable \
+                    --export=ALL,SOMASV_REPO="${SOMASV_REPO}",ACESEQ_REPO="${ACESEQ_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${ACESEQ_RUN_OUTDIR}",PIPELINE_WORKDIR="${aceseq_work_dir}",PIPELINE_LAUNCH_DIR="${aceseq_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}" \
+                    "${SOMASV_REPO}/slurm/nf_aceseq.sbatch"
+            )
 
-        printf 'Sample %-20s ACEseq job %-12s EnsembleSomaSVCaller job %-12s Manifest %s\n' \
-            "${sample}" "${ACESEQ_JOB}" "${SOMASV_JOB}" "${aceseq_manifest}"
+            SOMASV_JOB=$(
+                sbatch --parsable \
+                    --dependency=afterok:${ACESEQ_JOB} \
+                    --export=ALL,SOMASV_REPO="${SOMASV_REPO}",SOMASV_OUT_BASE="${SOMASV_OUT_BASE}",PIPELINE_INPUT="${sample_sheet}",PIPELINE_SAMPLE_ID="${sample}",PIPELINE_OUTDIR="${SOMASV_RUN_OUTDIR}",PIPELINE_WORKDIR="${somasv_work_dir}",PIPELINE_LAUNCH_DIR="${somasv_launch_dir}",ACESEQ_MANIFEST="${aceseq_manifest}",PIPELINE_SKIP_ACESEQ="${SKIP_ACESEQ}",PIPELINE_GUROBI_JABBA="${GUROBI_JABBA}",PIPELINE_GUROBI_PATH="${GUROBI_PATH}" \
+                    "${SOMASV_REPO}/slurm/nf_somasv.sbatch"
+            )
+
+            printf 'Sample %-20s ACEseq job %-12s EnsembleSomaSVCaller job %-12s Manifest %s\n' \
+                "${sample}" "${ACESEQ_JOB}" "${SOMASV_JOB}" "${aceseq_manifest}"
+        fi
     done
 } < "${SAMPLESHEET}"

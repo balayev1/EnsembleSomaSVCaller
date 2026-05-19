@@ -2,5 +2,10 @@
 .nextflow.log
 logs/
 work/
+__pycache__/
+*.py[cod]
+diagnostics/
+diagnostics_runs/
+recovery/
 assets/gurobi.lic
 containers/jabba-r45-gurobi1300/gurobi13.0.1_linux64.tar.gz
