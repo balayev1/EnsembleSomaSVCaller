@@ -46,6 +46,14 @@ Important files published during purity/ploidy estimation include:
 
 The consensus table is the file consumed downstream to select JaBbA purity and ploidy unless explicit overrides are supplied.
 
+Purity/ploidy consensus is estimated per sample from candidate `(purity, ploidy)` points. The candidate sources are ASCAT, FACETS, Sequenza, and ACEseq by default; when `--skip_aceseq true` is set, ACEseq is omitted and the consensus is based on ASCAT, FACETS, and Sequenza only.
+
+The merge step clusters candidate points in two-dimensional purity/ploidy space with DBSCAN. By default, points are grouped when they are within `eps = 0.1`, and a cluster must contain at least `min_samples = 2` points. A cluster is only eligible for consensus if it is supported by at least two distinct base callers. Multiple ACEseq rows count as multiple candidate points, but they still represent one base caller, so ACEseq alone cannot form a valid consensus cluster.
+
+If multiple eligible clusters are found, the selected cluster is ranked by more supporting callers, then more supporting points, then tighter clustering around its centroid. The reported consensus purity and ploidy are the medians of the purity and ploidy values in that selected cluster.
+
+At least two expected callers must provide usable purity/ploidy values. With ACEseq enabled, this means at least two of ASCAT, FACETS, Sequenza, and ACEseq; with `--skip_aceseq true`, at least two of ASCAT, FACETS, and Sequenza. If too many callers are missing or no eligible cluster is found, `*.purity_ploidy_consensus.tsv` reports `status = no_consensus` with `purity = NA` and `ploidy = NA`.
+
 ### Breakpoint calling and consensus SVs
 
 Breakpoint evidence is generated from multiple callers and harmonized before JaBbA:
@@ -57,6 +65,8 @@ Breakpoint evidence is generated from multiple callers and harmonized before JaB
 - SURVIVOR: merged and filtered consensus breakpoint VCFs
 
 The filtered SURVIVOR VCF is the principal breakpoint input passed to JaBbA.
+
+Before JaBbA, consensus breakpoint records are annotated with a support-derived `TIER` value. Structural variants supported by two or more breakpoint callers are assigned `TIER=1`; variants supported by only one caller are assigned `TIER=2`. This tiering is based on SURVIVOR caller support after merging and filtering.
 
 ### Coverage products
 
